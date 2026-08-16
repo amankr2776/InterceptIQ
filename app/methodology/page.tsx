@@ -17,7 +17,7 @@ const STEPS = [
   {
     n: 2, title: 'Build the cost matrix',
     q: 'How good is each possible shot?',
-    body: 'Each feasible pair is scored with a kill-probability model, then weighted by the value of the asset that threat is aimed at. Rows of the matrix are individual interceptor rounds (one per missile on the rail, with reload cadence penalties); columns are live threats. Cost is the negative of (Pk × target value), so minimising total cost maximises expected value-weighted destruction. Infeasible pairs receive a prohibitive big-M cost.',
+    body: 'Each feasible pair is scored with a kill-probability model, then weighted by the value of the asset that threat is aimed at. Rows of the matrix are individual interceptor rounds (one per missile on the rail, with reload cadence penalties); columns are live threats. Cost is the negative of (Pk × target value), so minimising total cost maximises expected value-weighted destruction. A load-sharing term mildly penalises a battery that has already committed much of its inventory, so capable units are not left idle while one battery fires everything. Infeasible pairs receive a prohibitive big-M cost.',
     out: 'An N-rounds × M-threats cost matrix.',
   },
   {
@@ -27,13 +27,19 @@ const STEPS = [
     out: 'An optimal fire plan for a given set of sites.',
   },
   {
-    n: 4, title: 'Search for the minimal site subset',
+    n: 4, title: 'Choose where to kill it',
+    q: 'Close to the battery, or far from the city?',
+    body: 'Maximising raw kill probability alone drives the intercept toward the launcher, because a shorter shot scores better on range. Batteries sit near what they defend, so that produced intercepts a few kilometres from the city at low altitude with seconds to spare — the opposite of how layered air defence is fought. Engagement points are therefore scored by Pk weighted toward standoff from the protected asset, excluding any point below 70% of the best available Pk so doctrine never buys a bad shot. Debris falls short of the population, and a miss still leaves time to re-engage.',
+    out: 'Mean intercept standoff rose from 33 km to about 120 km, with mean Pk unchanged or better. Reported Pk is always the true physical value at the chosen point.',
+  },
+  {
+    n: 5, title: 'Search for the minimal site subset',
     q: 'What is the smallest set of sites that still does the job?',
     body: 'The assignment solve above becomes the inner loop of a subset search. Define B as the protection achievable using every candidate site, and τ = B − tolerance as the acceptance bar. A subset is admissible if its protection reaches τ. The search enumerates subsets by increasing cardinality — all subsets of size 1, then size 2, and so on — and stops at the first size that contains an admissible subset.',
     out: 'The smallest sufficient set of launch areas.',
   },
   {
-    n: 5, title: 'Certify minimality',
+    n: 6, title: 'Certify minimality',
     q: 'How do we know nothing smaller works?',
     body: 'Because the search moves upward through cardinalities, when it accepts a subset of size k it has already explicitly evaluated and rejected every subset of every smaller size. That is a constructive proof by exhaustion, not a local optimum. Exhaustive certification is 2ⁿ assignment solves in the worst case, so it runs up to 12 candidate sites; above that the solver falls back to greedy backward elimination and reports its answer as HEURISTIC rather than claim a proof it did not perform.',
     out: 'A CERTIFIED or HEURISTIC flag, surfaced in the UI header.',
@@ -168,6 +174,35 @@ export default function Methodology() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* ---------- POSTURES ---------- */}
+          <div className="card" style={{ padding: 13, marginTop: 12 }}>
+            <div style={{ fontSize: 10, color: 'var(--amb)', letterSpacing: '.09em', marginBottom: 8 }}>
+              ENGAGEMENT POSTURES — AND WHY THE COMPARISON MATTERS
+            </div>
+            <div style={{ fontSize: 10.5, color: 'var(--dim)', lineHeight: 1.7, marginBottom: 9 }}>
+              The optimiser&rsquo;s answer only means something next to the alternatives, so the
+              Overview page solves the same scenario five ways and shows them side by side. Every
+              mode is a real solve — nothing is pre-computed.
+            </div>
+            {[
+              ['No defence', 'Nothing engages. Establishes what the attack achieves unopposed — the baseline a judge needs before any number means anything.'],
+              ['Best single site', 'The strongest individual battery acting alone: what an operator might pick without optimisation.'],
+              ['All sites', 'Every battery active, no reasoning about which to use. The naive full-network baseline.'],
+              ['Layered', 'Every capable battery engages. Closest to operational reality, and what the alert chain displays.'],
+              ['Optimised', 'The smallest certified subset that still holds the line — the problem-statement deliverable.'],
+            ].map(([k, v]) => (
+              <div key={k as string} style={{ display: 'flex', gap: 9, marginBottom: 6 }}>
+                <span style={{ width: 108, flexShrink: 0, fontSize: 10, color: 'var(--txt)' }}>{k}</span>
+                <span style={{ fontSize: 9.5, color: 'var(--dim)', lineHeight: 1.55 }}>{v}</span>
+              </div>
+            ))}
+            <div style={{ fontSize: 9.5, color: 'var(--cy)', marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--line)', lineHeight: 1.6 }}>
+              The interesting result is that the optimised subset typically matches or beats the
+              all-sites baseline while using fewer launch areas — freeing batteries the naive plan
+              would have committed.
             </div>
           </div>
 
