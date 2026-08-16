@@ -90,3 +90,8 @@ td { padding: 4px 7px; }
 .intcp-line  { animation: marchOut 1.6s linear infinite; }
 .burst-ring  { animation: burstRing 1.5s ease-out infinite; }
 .shield-halo { animation: shieldPulse 3s ease-in-out infinite; }
+
+@keyframes radarSweep { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+.radar-sweep { animation: radarSweep 4s linear infinite; transform-origin: 0 0; }
+@keyframes flicker { 0%,100% { opacity: 1 } 50% { opacity: .55 } }
+.plume { animation: flicker .18s steps(2) infinite; }

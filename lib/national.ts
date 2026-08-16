@@ -45,12 +45,35 @@ export interface NationalRadar {
 
 const UNITS = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'Kilo', 'Lima', 'Mike', 'November'];
 
-/** Layer template by sector value. */
-function templateFor(value: number): string[] {
-  if (value >= 10) return ['S400', 'AAD', 'MRSAM', 'AKASH', 'QRSAM'];
-  if (value >= 9)  return ['S400', 'MRSAM', 'AKASH', 'SPYDER'];
-  if (value >= 8)  return ['MRSAM', 'AKASH', 'SPYDER', 'QRSAM'];
-  return ['AKASH', 'QRSAM', 'PECHORA'];
+/**
+ * Border sectors — shortest warning time, densest coverage.
+ * Rajasthan, Gujarat, Haryana, Punjab, J&K / Ladakh and the Uttarakhand hills.
+ */
+const BORDER = new Set([
+  'AMR', 'LDH', 'JAL', 'PTH', 'JMU', 'SGR', 'LEH',   // Punjab + J&K
+  'JAI', 'JOD', 'BIK', 'BAR',                        // Rajasthan
+  'BHU', 'JAM', 'AHM',                               // Gujarat
+  'AMB', 'HIS',                                      // Haryana
+  'DDN',                                             // Uttarakhand
+]);
+
+/**
+ * Layer template. Border sectors receive a long-range layer plus a doubled
+ * medium/point-defence tier, because a threat crossing the frontier gives the
+ * defender far less time than one detected deep inside national airspace.
+ */
+function templateFor(value: number, id: string): string[] {
+  const border = BORDER.has(id);
+  if (value >= 10) return ['S400', 'AAD', 'MRSAM', 'AKASH', 'AKASH', 'QRSAM', 'SPYDER'];
+  if (value >= 9)  return border
+    ? ['S400', 'AAD', 'MRSAM', 'AKASH', 'AKASH', 'QRSAM', 'SPYDER']
+    : ['S400', 'MRSAM', 'AKASH', 'SPYDER'];
+  if (value >= 8)  return border
+    ? ['S400', 'MRSAM', 'AKASH', 'AKASH', 'QRSAM', 'SPYDER']
+    : ['MRSAM', 'AKASH', 'SPYDER', 'QRSAM'];
+  return border
+    ? ['MRSAM', 'AKASH', 'AKASH', 'QRSAM', 'SPYDER']
+    : ['AKASH', 'QRSAM', 'PECHORA'];
 }
 
 const layerOf = (role: InterceptorSpec['role']): NationalBattery['layer'] =>
@@ -74,7 +97,7 @@ export function buildNationalLaydown(seed = 20260816): NationalLaydown {
   let u = 0;
 
   for (const s of SECTORS) {
-    const tmpl = templateFor(s.value);
+    const tmpl = templateFor(s.value, s.id);
     // ring the sector, biased toward the nearest threat axis
     const theatre = THEATRES.find((t) => t.sectors.includes(s.id));
     const arcMid = theatre

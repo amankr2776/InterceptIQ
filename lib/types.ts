@@ -149,6 +149,8 @@ export interface SubsetTrial {
   admissible: boolean;
   delta: number;      // protection - baseline
   removed?: string;   // greedy path only
+  /** true = eliminated by the upper bound without a full solve */
+  pruned?: boolean;
 }
 
 /** PS output (c): minimal optimal SUBSET of (b). */

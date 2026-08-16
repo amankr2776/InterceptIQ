@@ -21,7 +21,12 @@ import type { EngagementOption, LaunchArea, Threat, LocalPoint } from './types';
 
 export interface SolveCtx {
   tNow: number;
-  keepOutAltM?: number; // don't score intercepts below this (debris/self-defence floor)
+  /** Debris keep-out floor, metres. Applied as a DEFAULT only — it never
+   *  overrides a battery whose published minimum engagement altitude is
+   *  lower, otherwise low-altitude point-defence systems (QRSAM 30 m,
+   *  SPYDER 20 m, S-400 10 m) would be unable to engage terrain-hugging
+   *  cruise missiles, which is precisely what they exist to do. */
+  keepOutAltM?: number;
   /** AOI origin for converting local ENU back to geodetic. MUST be the origin
    *  of the scenario being solved — using a stale global constant here silently
    *  places every intercept point hundreds of km from its true location. */
@@ -36,7 +41,8 @@ export function solveEngagement(
   const L: LocalPoint = { x: area.centroidLocal.x, y: area.centroidLocal.y, z: 0 };
   const tLaunch = ctx.tNow + area.reactionTime;
   const vi = area.interceptorSpeed / 1000; // km/s
-  const floor = ctx.keepOutAltM ?? 0;
+  // Effective floor = the battery's own published minimum, never higher.
+  const floor = Math.min(ctx.keepOutAltM ?? 0, area.minEngageAlt);
 
   const base = {
     areaId: area.id,

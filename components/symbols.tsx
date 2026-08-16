@@ -65,7 +65,7 @@ export function BatteryIcon({ s = 1, col = COL.intcp, dead = false }: { s?: numb
   );
 }
 
-/** Threat track symbol by class (simplified NATO-style). */
+/** Threat track symbol by class (simplified NATO-style, kept for legends). */
 export function symbolPath(cls: string): string {
   switch (cls) {
     case 'CRUISE': return 'M0,-9 L8,8 L0,4 L-8,8 Z';
@@ -73,6 +73,87 @@ export function symbolPath(cls: string): string {
     case 'MRBM': return 'M0,-9 L9,0 L0,9 L-9,0 Z';
     default: return 'M0,-8 L8,0 L0,8 L-8,0 Z';
   }
+}
+
+/**
+ * MISSILE BODY — drawn nose-up in local space, rotated to the track heading by
+ * the caller. Gives the map an actual vehicle rather than an abstract blip:
+ * ballistic RVs are slim cones, cruise missiles have wings and a tail.
+ */
+export function MissileBody({ cls, s = 1, col = COL.threat, hot = true }:
+  { cls: string; s?: number; col?: string; hot?: boolean }) {
+  const cruise = cls === 'CRUISE';
+  return (
+    <g transform={`scale(${s})`}>
+      {/* exhaust plume */}
+      {hot && (
+        <g opacity=".9">
+          <path d={cruise ? 'M0,7 L2.2,16 L0,13 L-2.2,16 Z' : 'M0,9 L2.6,20 L0,16 L-2.6,20 Z'}
+            fill="#ffb020" opacity=".55" />
+          <path d={cruise ? 'M0,7 L1.2,12 L-1.2,12 Z' : 'M0,9 L1.4,15 L-1.4,15 Z'} fill="#fff0c9" />
+        </g>
+      )}
+      {cruise ? (
+        <>
+          <path d="M0,-10 L2.6,-4 L2.6,7 L-2.6,7 L-2.6,-4 Z" fill="#2a3340" stroke={col} strokeWidth="1.3" strokeLinejoin="round" />
+          <path d="M2.6,-1 L9.5,2.5 L2.6,2.5 Z" fill={col} fillOpacity=".55" stroke={col} strokeWidth="1" />
+          <path d="M-2.6,-1 L-9.5,2.5 L-2.6,2.5 Z" fill={col} fillOpacity=".55" stroke={col} strokeWidth="1" />
+          <path d="M2.6,5 L5.5,7.5 L2.6,7.5 Z M-2.6,5 L-5.5,7.5 L-2.6,7.5 Z" fill={col} />
+          <circle cy="-7" r="1.5" fill="#ffd7dc" />
+        </>
+      ) : (
+        <>
+          <path d="M0,-12 L3,-3 L3,8 L-3,8 L-3,-3 Z" fill="#2a3340" stroke={col} strokeWidth="1.35" strokeLinejoin="round" />
+          <path d="M3,4 L7,9.5 L3,9.5 Z M-3,4 L-7,9.5 L-3,9.5 Z" fill={col} fillOpacity=".75" stroke={col} strokeWidth="1" />
+          <path d="M0,-12 L3,-3 L-3,-3 Z" fill={col} />
+          <circle cy="-9" r="1.4" fill="#ffd7dc" />
+        </>
+      )}
+    </g>
+  );
+}
+
+/** INTERCEPTOR in flight — slim, blue, hot motor. Nose-up, caller rotates. */
+export function InterceptorBody({ s = 1 }: { s?: number }) {
+  return (
+    <g transform={`scale(${s})`}>
+      <g opacity=".95">
+        <path d="M0,6 L2.4,18 L0,14 L-2.4,18 Z" fill={COL.intcp} opacity=".5" />
+        <path d="M0,6 L1.2,12 L-1.2,12 Z" fill="#dbeeff" />
+      </g>
+      <path d="M0,-10 L2.4,-3 L2.4,6 L-2.4,6 L-2.4,-3 Z" fill="#0d2237" stroke={COL.intcp} strokeWidth="1.35" strokeLinejoin="round" />
+      <path d="M2.4,2 L5.8,7.5 L2.4,7.5 Z M-2.4,2 L-5.8,7.5 L-2.4,7.5 Z" fill={COL.intcp} />
+      <path d="M0,-10 L2.4,-3 L-2.4,-3 Z" fill="#9fd0ff" />
+    </g>
+  );
+}
+
+/** Rotating radar dish with a sweeping beam. */
+export function RadarIcon({ s = 1, sweep = true }: { s?: number; sweep?: boolean }) {
+  return (
+    <g transform={`scale(${s})`}>
+      {sweep && (
+        <g className="radar-sweep">
+          <path d="M0,0 L15,-9 A17.5,17.5 0 0 1 15,9 Z" fill={COL.radar} opacity=".16" />
+        </g>
+      )}
+      <path d="M-7,6 L0,-8 L7,6 Z" fill="#12131f" stroke={COL.radar} strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M-9,6 h18" stroke={COL.radar} strokeWidth="1.6" strokeLinecap="round" />
+      <circle cy="-2" r="1.5" fill={COL.radar} />
+    </g>
+  );
+}
+
+/** Small UAV / drone planform. */
+export function DroneIcon({ s = 1, col = COL.threat }: { s?: number; col?: string }) {
+  return (
+    <g transform={`scale(${s})`}>
+      <path d="M0,-8 L1.8,-2 L1.8,6 L-1.8,6 L-1.8,-2 Z" fill="#2a3340" stroke={col} strokeWidth="1.2" />
+      <path d="M-11,0 L11,0" stroke={col} strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M-4.5,6.5 L4.5,6.5" stroke={col} strokeWidth="1.3" strokeLinecap="round" />
+      <circle cy="-5.5" r="1.2" fill="#ffd7dc" />
+    </g>
+  );
 }
 
 /** Arrow-marker defs — must be included once per <svg> that draws engagement lines. */

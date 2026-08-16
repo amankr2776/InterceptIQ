@@ -13,11 +13,17 @@ export const kmLon = (lat: number) => 111.32 * Math.cos((lat * Math.PI) / 180);
 const UNIT = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India', 'Juliet'];
 
 /** Which real systems make up the candidate laydown, by tier. */
+/**
+ * Candidate laydown per tier. Akash appears more than once because it is the
+ * workhorse medium-range system in Indian service (15 squadrons), and the
+ * long-range S-400 anchors every tier above easy. Harder tiers add the BMD
+ * layer (AAD/PAD) for high-apogee ballistic threats.
+ */
 const LAYDOWN: Record<string, string[]> = {
-  easy:   ['AKASH', 'MRSAM', 'QRSAM', 'SPYDER'],
-  medium: ['S400', 'MRSAM', 'AKASH', 'QRSAM', 'SPYDER', 'PECHORA'],
-  hard:   ['S400', 'AAD', 'PAD', 'MRSAM', 'AKASH', 'QRSAM', 'SPYDER', 'PECHORA'],
-  random: ['S400', 'AAD', 'MRSAM', 'AKASH', 'QRSAM', 'SPYDER', 'PECHORA'],
+  easy:   ['AKASH', 'MRSAM', 'AKASH', 'QRSAM', 'SPYDER'],
+  medium: ['S400', 'MRSAM', 'AKASH', 'AKASH', 'QRSAM', 'SPYDER', 'MRSAM', 'PECHORA'],
+  hard:   ['S400', 'AAD', 'MRSAM', 'AKASH', 'AKASH', 'S400', 'QRSAM', 'SPYDER', 'PAD', 'MRSAM'],
+  random: ['S400', 'AAD', 'MRSAM', 'AKASH', 'AKASH', 'QRSAM', 'SPYDER', 'MRSAM', 'PECHORA'],
 };
 
 const THREAT_MIX: Record<string, string[]> = {
@@ -28,10 +34,10 @@ const THREAT_MIX: Record<string, string[]> = {
 };
 
 const TIER: Record<string, { threats: [number, number]; areas: [number, number] }> = {
-  easy:   { threats: [2, 3], areas: [3, 4] },
-  medium: { threats: [4, 6], areas: [5, 6] },
+  easy:   { threats: [2, 3], areas: [3, 5] },
+  medium: { threats: [4, 6], areas: [5, 7] },
   hard:   { threats: [7, 9], areas: [7, 8] },
-  random: { threats: [3, 8], areas: [4, 7] },
+  random: { threats: [3, 8], areas: [5, 7] },
 };
 
 export interface GenOpts {
@@ -161,18 +167,37 @@ export function generateScenario(opts: GenOpts): Scenario {
   });
 
   // ---------- Candidate batteries: REAL system types ----------
-  const pool = LAYDOWN[opts.tier] ?? LAYDOWN.random;
+  // Resolve the laydown to concrete specs up front. Filtering here means an
+  // unknown id can never reach the loop as `undefined`, and the modulo below
+  // is always taken against a non-empty array of real systems.
+  const poolIds = LAYDOWN[opts.tier] ?? LAYDOWN.random;
+  const pool: InterceptorSpec[] = poolIds
+    .map((id) => INTERCEPTORS.find((x) => x.id === id))
+    .filter((x): x is InterceptorSpec => !!x);
+  if (!pool.length) throw new Error(`No valid interceptor systems for tier "${opts.tier}"`);
+
   const areas: LaunchArea[] = [];
   for (let i = 0; i < nAreas; i++) {
-    const spec: InterceptorSpec =
-      INTERCEPTORS.find((x) => x.id === pool[i % pool.length])!;
-    // place around a defended sector, offset toward the threat axis
+    const spec: InterceptorSpec = pool[i % pool.length];
+    // Place against the sector this battery defends, offset along the threat
+    // axis so its envelope covers the approach rather than the rear.
     const a = assets[i % assets.length];
     const arc = theatre.threatArc;
     const lo = arc[0], hi = arc[1] < arc[0] ? arc[1] + 360 : arc[1];
-    const bear = ((rng.range(lo - 55, hi + 55) % 360) + 360) % 360;
-    // stand-off proportional to the system's own reach
-    const off = Math.min(spec.rangeKm[1] * rng.range(0.22, 0.5), span * 0.3);
+    const bear = ((rng.range(lo - 45, hi + 45) % 360) + 360) % 360;
+
+    /* Stand-off doctrine.
+     * Long-range area-defence systems sit well forward so their large
+     * envelopes cover the approach corridor. Short-range, low-altitude
+     * systems (QRSAM, SPYDER, Akash) are terminal defence — they must sit
+     * ON the asset, because a terrain-hugging cruise missile is only
+     * engageable in the last few tens of km. Pushing them forward was
+     * leaving a hole under the long-range layer that Babur-class threats
+     * flew straight through. */
+    const lowAlt = spec.altM[1] <= 20000;
+    const off = lowAlt
+      ? Math.min(spec.rangeKm[1] * rng.range(0.10, 0.28), a.radiusKm + 18)
+      : Math.min(spec.rangeKm[1] * rng.range(0.20, 0.45), span * 0.28);
     const bLat = a.centroid.lat + (off * Math.cos((bear * Math.PI) / 180)) / KM_LAT;
     const bLon = a.centroid.lon + (off * Math.sin((bear * Math.PI) / 180)) / kmLon(a.centroid.lat);
 
@@ -208,10 +233,15 @@ export function generateScenario(opts: GenOpts): Scenario {
   }
 
   // ---------- Threats: REAL system classes ----------
-  const mix = THREAT_MIX[opts.tier] ?? THREAT_MIX.random;
+  const mixIds = THREAT_MIX[opts.tier] ?? THREAT_MIX.random;
+  const mix: ThreatSpec[] = mixIds
+    .map((id) => THREATS.find((x) => x.id === id))
+    .filter((x): x is ThreatSpec => !!x);
+  if (!mix.length) throw new Error(`No valid threat systems for tier "${opts.tier}"`);
+
   const threats: Threat[] = [];
   for (let i = 0; i < nThreats; i++) {
-    const spec = THREATS.find((x) => x.id === mix[rng.int(0, mix.length - 1)])!;
+    const spec: ThreatSpec = mix[rng.int(0, mix.length - 1)];
     const aimAsset = assets[rng.int(0, assets.length - 1)];
     const jitter = rng.range(0, aimAsset.radiusKm * 1.1);
     const jAng = rng.range(0, 2 * Math.PI);

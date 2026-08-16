@@ -199,7 +199,7 @@ export function allocate(sc: Scenario, opts: AllocOpts = {}): AllocationSolution
  * with certified=false and labelled HEURISTIC in the UI. We never claim
  * minimality we have not proven.
  */
-export const EXHAUSTIVE_LIMIT = 12;
+export const EXHAUSTIVE_LIMIT = 14;
 
 export function allocateMinimalSet(sc: Scenario, opts: AllocOpts = {}): AllocationSolution {
   const t0 = Date.now();
@@ -224,12 +224,48 @@ export function allocateMinimalSet(sc: Scenario, opts: AllocOpts = {}): Allocati
     return s;
   };
 
-  // ---------- CERTIFIED PATH: exhaustive by increasing cardinality ----------
+  /* ---- Admissibility upper bound (cheap, sound) ----------------------------
+   * Before paying for a full multi-wave Hungarian solve on a candidate subset,
+   * compute an optimistic ceiling on what that subset could possibly achieve:
+   * for every threat take the single best Pk available from any site in the
+   * subset, assume it is achieved, and ignore inventory limits entirely. No
+   * real assignment can beat that. If even this ceiling falls below tau, the
+   * subset provably cannot be admissible and is skipped without solving.
+   * This never changes the answer — it only avoids doomed solves. */
+  const table = buildOptions(sc, opts.tNow ?? 0).opts;
+  const totalValue = sc.threats.reduce((a, t) => a + t.rvValue, 0) || 1;
+  const upperBound = (ids: string[]) => {
+    let acc = 0;
+    for (const th of sc.threats) {
+      let best = 0;
+      for (const id of ids) {
+        const o = table.get(`${id}|${th.id}`);
+        if (o?.feasible && o.pk > best) best = o.pk;
+      }
+      // salvoDepth rounds at the same best Pk is the most optimistic case
+      const depth = opts.salvoDepth ?? 2;
+      const cum = 1 - Math.pow(1 - best, depth);
+      acc += cum * th.rvValue;
+    }
+    return acc / totalValue;
+  };
+
+  /* ---------- CERTIFIED PATH: exhaustive by increasing cardinality ----------
+   * Pruning: protection is monotone under adding sites, so a subset can never
+   * beat the full-set baseline B. If tau > B no subset is admissible and we can
+   * stop immediately. Within a cardinality we also stop early once a subset
+   * reaches the baseline itself — nothing at that size can do better. This
+   * keeps the search exact while cutting the 2^n worst case dramatically. */
   if (all.length <= EXHAUSTIVE_LIMIT) {
     for (let k = 1; k <= all.length; k++) {
       let bestAtK: { ids: string[]; sol: AllocationSolution } | null = null;
       let testedAtK = 0;
       for (const cand of combinations(all, k)) {
+        // Skip subsets that cannot reach tau even under the optimistic bound.
+        if (upperBound(cand) < tau - 1e-9) {
+          trace.push({ size: k, areaIds: cand, protection: 0, admissible: false, delta: -baseline, pruned: true });
+          continue;
+        }
         const s = evalSubset(cand);
         testedAtK++;
         const p = s.metrics.weightedProtection;
@@ -240,6 +276,8 @@ export function allocateMinimalSet(sc: Scenario, opts: AllocOpts = {}): Allocati
         });
         if (p >= tau - 1e-9 && (!bestAtK || p > bestAtK.sol.metrics.weightedProtection)) {
           bestAtK = { ids: cand, sol: s };
+          // Cannot exceed the all-sites baseline; this subset is optimal at |S|=k.
+          if (p >= baseline - 1e-9) break;
         }
       }
       if (bestAtK) {

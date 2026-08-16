@@ -4,7 +4,7 @@ import type { AllocationSolution, Scenario } from '@/lib/types';
 import { stateAt } from '@/lib/geometry';
 import { region } from '@/lib/theatre';
 import { KM_LAT, kmLon } from '@/lib/scenario';
-import { ShieldIcon, BurstIcon, BatteryIcon, EngagementDefs, symbolPath, COL } from './symbols';
+import { ShieldIcon, BurstIcon, BatteryIcon, EngagementDefs, MissileBody, InterceptorBody, COL } from './symbols';
 
 export type Sel =
   | { kind: 'threat'; id: string }
@@ -21,6 +21,18 @@ interface Props {
 }
 
 const V = 1000;
+
+/** Ground-track heading (deg, 0 = north) of a threat at time t, for icon rotation. */
+function headingAt(th: { trajectory: { t: number; p: { lat: number; lon: number } }[] }, t: number) {
+  const tr = th.trajectory;
+  let i = tr.findIndex((s) => s.t >= t);
+  if (i < 1) i = 1;
+  if (i >= tr.length) i = tr.length - 1;
+  const a = tr[i - 1].p, b = tr[i].p;
+  const dLon = (b.lon - a.lon) * Math.cos((a.lat * Math.PI) / 180);
+  const dLat = b.lat - a.lat;
+  return (Math.atan2(dLon, dLat) * 180) / Math.PI;
+}
 
 /* Muted landmass palette: the map is a backdrop, tracks and rings are the
  * signal. India is very slightly lifted from its neighbours, no more. */
@@ -198,8 +210,9 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                   stroke="#040910" strokeWidth="3" paintOrder="stroke">
                   {a.name.toUpperCase()}
                 </text>
-                {(on || a.primary) && (
-                  <text y={27} fill="var(--dim2)" fontSize="8" textAnchor="middle">PROTECTED ASSET</text>
+                {on && (
+                  <text y={27} fill="var(--dim2)" fontSize="7.5" textAnchor="middle"
+                    stroke="#040910" strokeWidth="2.4" paintOrder="stroke">PROTECTED ASSET</text>
                 )}
               </g>
             </g>
@@ -228,13 +241,22 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                 fill={on ? (used ? 'rgba(255,176,32,.22)' : 'rgba(67,96,120,.2)') : 'rgba(107,47,61,.28)'}
                 stroke={col} strokeWidth={(hi ? 2.2 : 1.4) * iz} />
               <g transform={`translate(${cx},${cy}) scale(${iz})`}>
-                <BatteryIcon s={1.05} col={col} dead={!on} />
-                <text y="-14" fill={col} fontSize="10" textAnchor="middle" fontWeight="600"
-                  stroke="#040910" strokeWidth="2.6" paintOrder="stroke">{a.name}</text>
-                <text y="20" fill={on ? '#5d7d96' : '#8a4550'} fontSize="8.5" textAnchor="middle"
-                  stroke="#040910" strokeWidth="2.4" paintOrder="stroke">
-                  {on ? `${a.inventory} RDY · ${a.maxSlantRange}km` : 'OFFLINE'}
-                </text>
+                {/* launcher size scales with the class of system */}
+                <BatteryIcon s={a.maxSlantRange >= 150 ? 1.3 : a.maxSlantRange >= 60 ? 1.1 : 0.95} col={col} dead={!on} />
+                {on && used && (
+                  <circle r={a.maxSlantRange >= 150 ? 15 : 12} fill="none" stroke={col}
+                    strokeWidth=".9" strokeOpacity=".5" strokeDasharray="2 3" />
+                )}
+                {(used || hi || !on) && (
+                  <>
+                    <text y="-15" fill={col} fontSize="9.5" textAnchor="middle" fontWeight="600"
+                      stroke="#040910" strokeWidth="2.8" paintOrder="stroke">{a.name}</text>
+                    <text y="21" fill={on ? '#5d7d96' : '#8a4550'} fontSize="8" textAnchor="middle"
+                      stroke="#040910" strokeWidth="2.6" paintOrder="stroke">
+                      {on ? `${a.inventory} RDY · ${a.maxSlantRange}km` : 'OFFLINE'}
+                    </text>
+                  </>
+                )}
               </g>
             </g>
           );
@@ -246,7 +268,9 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
             <g transform={`translate(${PX(th.origin.p.lon)},${PY(th.origin.p.lat)}) scale(${iz})`}>
               <path d="M-6,6 L0,-7 L6,6 Z" fill="none" stroke="#f43f5e" strokeWidth="1.4" />
               <circle r="10" fill="none" stroke="#f43f5e" strokeWidth=".8" strokeDasharray="2 3" />
-              <text y="21" fill="#a3505c" fontSize="8.5" textAnchor="middle">{th.origin.name}</text>
+              {sc.threats.length <= 6 && (
+                <text y="21" fill="#a3505c" fontSize="8" textAnchor="middle">{th.origin.name}</text>
+              )}
             </g>
           </g>
         ))}
@@ -293,10 +317,14 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                 <g style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); if (!drag.current?.moved) onSel({ kind: 'threat', id: th.id }); }}>
                   {isSel && <circle cx={PX(st.p.lon)} cy={PY(st.p.lat)} r={18 * iz} fill="none" stroke={COL.asset} strokeWidth={iz} strokeDasharray={`${3 * iz} ${3 * iz}`} />}
                   <g transform={`translate(${PX(st.p.lon)},${PY(st.p.lat)}) scale(${iz})`}>
-                    <path d={symbolPath(th.cls)} fill={COL.threat} fillOpacity=".9" stroke="#ffd7dc" strokeWidth="1.3" strokeLinejoin="round" />
-                    <text x="13" y="-5" fill="#ffb3ba" fontSize="10.5">{th.callsign}</text>
-                    <text x="13" y="6" fill="#8a6268" fontSize="8.5">
-                      {th.cls} · {(st.p.alt / 1000).toFixed(0)}km · →{th.targetAssetName}
+                    <g transform={`rotate(${headingAt(th, t)})`}>
+                      <MissileBody cls={th.cls} s={1.05} />
+                    </g>
+                    <text x="15" y="-5" fill="#ffb3ba" fontSize="10.5"
+                      stroke="#040910" strokeWidth="2.6" paintOrder="stroke">{th.callsign}</text>
+                    <text x="15" y="6" fill="#8a6268" fontSize="8.5"
+                      stroke="#040910" strokeWidth="2.4" paintOrder="stroke">
+                      {th.cls} · {(st.p.alt / 1000).toFixed(0)}km · M{(st.speed / 340).toFixed(1)} → {th.targetAssetName}
                     </text>
                   </g>
                 </g>
@@ -339,7 +367,10 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                     x2={x0 + (x1 - x0) * f} y2={y0 + (y1 - y0) * f}
                     stroke={COL.intcp} strokeWidth={2.2 * iz} strokeOpacity=".97"
                     strokeDasharray={`${10 * iz} ${5 * iz}`} markerEnd="url(#arrowIntcp)" />
-                  <circle cx={x0 + (x1 - x0) * f} cy={y0 + (y1 - y0) * f} r={3.2 * iz} fill="#dbeeff" />
+                  <g transform={`translate(${x0 + (x1 - x0) * f},${y0 + (y1 - y0) * f}) scale(${iz}) rotate(${
+                    (Math.atan2(x1 - x0, y0 - y1) * 180) / Math.PI})`}>
+                    <InterceptorBody s={0.95} />
+                  </g>
                 </>
               )}
               {/* aim point */}
