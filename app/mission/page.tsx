@@ -253,7 +253,11 @@ export default function MissionDetail() {
         </div>
         <div style={{ position: 'relative', minWidth: 0 }}>
           <GeoMap sc={sc} sol={sol} t={t} sel={sel} onSel={setSel} addMode={false}
-            onMapClick={() => {}} layers={{ tracks: true, predict: true, engage: true, rings: true, origins: false, altticks: true, grid: true, places: true, labels: true, states: true }} />
+            onMapClick={() => {}}
+            /* Match the overview's decluttered defaults: rings on demand
+             * (hover a site or use the toggle), no city names or graticule.
+             * These were left at the old always-on values. */
+            layers={{ tracks: true, predict: true, engage: true, rings: false, origins: false, altticks: false, grid: false, places: false, labels: true, states: true }} />
           <div style={{ position: 'absolute', top: 8, left: 8 }}><MapLegend compact /></div>
         </div>
         <div style={{ borderLeft: '1px solid var(--line)', minHeight: 0, overflow: 'hidden' }}>

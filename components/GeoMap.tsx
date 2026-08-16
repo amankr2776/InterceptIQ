@@ -275,6 +275,23 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
     return { la, lo };
   }, [lat0, lon0, latSpan, lonSpan]);
 
+  /**
+   * Zoom by `f` while holding the point (ux,uy) — in viewBox units — fixed
+   * under the cursor. The wheel passes the pointer position; the on-screen
+   * buttons pass the centre of the view, which is what a user expects from a
+   * +/- control (the middle of what they are looking at stays put).
+   * Bounds match the wheel exactly, so both routes behave identically.
+   */
+  const zoomAbout = useCallback((f: number, ux: number, uy: number) => {
+    setView((v) => {
+      const z = Math.max(0.75, Math.min(14, v.z * f));
+      const s = z / v.z;
+      return { z, x: ux - (ux - v.x) * s, y: uy - (uy - v.y) * s };
+    });
+  }, []);
+  const zoomStep = useCallback((f: number) => zoomAbout(f, VW / 2, VH / 2), [zoomAbout, VW, VH]);
+  const atMin = view.z <= 0.7501, atMax = view.z >= 13.999;
+
   return (
     <div ref={wrapRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
     <svg ref={svgRef} viewBox={`0 0 ${VW.toFixed(0)} ${VH.toFixed(0)}`} preserveAspectRatio="none"
@@ -293,12 +310,7 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
       onMouseLeave={() => { drag.current = null; onCursor?.(null); }}
       onWheel={(e) => {
         const { ux, uy } = toVB(e.clientX, e.clientY);
-        const f = e.deltaY < 0 ? 1.2 : 1 / 1.2;
-        setView((v) => {
-          const z = Math.max(0.75, Math.min(14, v.z * f));
-          const s = z / v.z;
-          return { z, x: ux - (ux - v.x) * s, y: uy - (uy - v.y) * s };
-        });
+        zoomAbout(e.deltaY < 0 ? 1.2 : 1 / 1.2, ux, uy);
       }}
       onClick={(e) => { if (addMode) { const p = toLL(e.clientX, e.clientY); onMapClick(p.lat, p.lon); } }}>
 
@@ -756,12 +768,14 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
           </g>
         );
       })()}
-      <text x={VW - 14} y="24" fill="#33546b" fontSize="11" textAnchor="end">ZOOM ×{view.z.toFixed(1)}</text>
+      {/* Zoom factor readout. Moved to the BOTTOM-right beside the scale bar:
+        * at the top it sat underneath the T+ clock overlay (measured overlap
+        * at x1495,y9 vs the clock at x1486,y10). The reset control it used to
+        * sit above is now a button in the zoom cluster. */}
       {Math.abs(view.z - 1) > 0.02 && (
-        <g style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setView({ x: 0, y: 0, z: 1 }); }}>
-          <rect x={VW - 96} y={34} width="82" height="20" fill="#0e141c" stroke="#25455c" rx="2" />
-          <text x={VW - 55} y={48} fill="#8fa8bd" fontSize="10" textAnchor="middle">RESET VIEW</text>
-        </g>
+        <text x={VW - 14} y={VH - 62} fill="#33546b" fontSize="11" textAnchor="end">
+          ZOOM ×{view.z.toFixed(1)}
+        </text>
       )}
       {addMode && (
         <text x={VW / 2} y="28" fill="#ffb020" fontSize="16" textAnchor="middle" letterSpacing="2">
@@ -769,6 +783,54 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
         </text>
       )}
     </svg>
+
+    {/* ---------- ZOOM CONTROLS ----------
+      * Wheel-zoom is not discoverable and is unusable on a trackpad-less
+      * demo machine or a touch screen, so the same transform is exposed as
+      * explicit buttons. Placed bottom-right, above the scale bar, which the
+      * layout probe confirmed is the only empty corner on both pages that
+      * hosts this map (top-left holds the legend and violation banner,
+      * top-right the clock and ring toggle, bottom-left the cursor readout).
+      * Rendered as HTML rather than SVG so they stay a constant physical
+      * size and get real focus/hover states for keyboard users. */}
+    <div style={{
+      position: 'absolute', right: 10, bottom: 62, display: 'flex',
+      flexDirection: 'column', gap: 4, zIndex: 6,
+    }}>
+      {([
+        ['+', 'Zoom in', () => zoomStep(1.4), atMax],
+        ['−', 'Zoom out', () => zoomStep(1 / 1.4), atMin],
+      ] as const).map(([glyph, label, fn, disabled]) => (
+        <button key={label} type="button" title={`${label} (or scroll on the map)`}
+          aria-label={label} disabled={disabled}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); fn(); }}
+          style={{
+            width: 30, height: 30, padding: 0, lineHeight: 1,
+            fontSize: 17, fontWeight: 600,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(6,10,15,.94)',
+            border: '1px solid var(--line)', borderRadius: 3,
+            color: disabled ? 'var(--dim2)' : 'var(--txt)',
+            cursor: disabled ? 'default' : 'pointer',
+            opacity: disabled ? 0.45 : 1,
+          }}>{glyph}</button>
+      ))}
+      <button type="button" title="Reset zoom and recentre" aria-label="Reset view"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); setView({ x: 0, y: 0, z: 1 }); }}
+        disabled={Math.abs(view.z - 1) < 0.02 && !view.x && !view.y}
+        style={{
+          width: 30, height: 26, padding: 0, fontSize: 12,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(6,10,15,.94)',
+          border: '1px solid var(--line)', borderRadius: 3,
+          color: Math.abs(view.z - 1) < 0.02 && !view.x && !view.y ? 'var(--dim2)' : 'var(--amb)',
+          cursor: 'pointer',
+          opacity: Math.abs(view.z - 1) < 0.02 && !view.x && !view.y ? 0.45 : 1,
+        }}>⌂</button>
+    </div>
+
     {fx && size.w > 0 && (
       <FxLayer sc={sc} sol={sol} t={t} playing={playing}
         project={projectPx} width={Math.round(size.w)} height={Math.round(size.h)} />
