@@ -14,11 +14,16 @@ import CompareBar from '@/components/CompareBar';
 import MissionSummary from '@/components/MissionSummary';
 import CinematicIntro from '@/components/CinematicIntro';
 
+/* Layer list, ordered by how often an operator actually toggles it. The
+ * cartographic decoration (cities, graticule, altitude ticks) is off by
+ * default: state boundaries alone are enough to locate anything on an Indian
+ * map, and every city label was one more thing competing with the
+ * interceptors and threat symbols for attention. */
 const LAYERS = [
-  ['tracks', 'Threat tracks'], ['predict', 'Predicted path'], ['engage', 'Interceptors'],
-  ['rings', 'Range rings'], ['origins', 'Launch points'], ['altticks', 'Altitude ticks'],
+  ['engage', 'Interceptors'], ['tracks', 'Threat tracks'], ['predict', 'Predicted path'],
+  ['rings', 'Range rings'], ['origins', 'Launch points'],
   ['states', 'State boundaries'], ['labels', 'Country names'],
-  ['places', 'Cities'], ['grid', 'Graticule'],
+  ['places', 'City names'], ['grid', 'Graticule'], ['altticks', 'Altitude ticks'],
 ] as const;
 
 export default function Overview() {
@@ -46,7 +51,9 @@ export default function Overview() {
   const [cursor, setCursor] = useState<{ lat: number; lon: number } | null>(null);
   const [layers, setLayers] = useState<Record<string, boolean>>({
     tracks: true, predict: true, engage: true, rings: true,
-    origins: true, altticks: true, grid: true, places: true, labels: true, states: true,
+    origins: true, states: true, labels: true,
+    // decoration — off by default so the engagement reads cleanly
+    altticks: false, grid: false, places: false,
   });
 
   if (!sc || !sol) return <div style={{ padding: 30, color: 'var(--dim)' }}>INITIALISING…</div>;

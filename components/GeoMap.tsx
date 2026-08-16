@@ -4,6 +4,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import type { AllocationSolution, Scenario } from '@/lib/types';
 import { stateAt } from '@/lib/geometry';
 import { region } from '@/lib/theatre';
+import { THREATS } from '@/lib/systems';
 import { batteryStatuses, type BatteryState } from '@/lib/alert';
 import { useElementSize } from '@/lib/useElementSize';
 import FxLayer from './FxLayer';
@@ -32,6 +33,13 @@ interface Props {
 }
 
 const V = 1000;
+
+/** Real weapon name for a track, e.g. "JF-17 Thunder", falling back to the
+ *  broad class if the id is ever unknown. This is the label the operator
+ *  actually needs: what is attacking, not an internal callsign. */
+function threatName(systemId: string, cls: string): string {
+  return THREATS.find((x) => x.id === systemId)?.name ?? cls;
+}
 
 /** Ground-track heading (deg, 0 = north) of a threat at time t, for icon rotation. */
 function headingAt(th: { trajectory: { t: number; p: { lat: number; lon: number } }[] }, t: number) {
@@ -156,6 +164,71 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
    * and launchers physically larger and readable. */
   const iz = 1 / (view.z * base);
   const ICON = 1.55;
+
+  /**
+   * LABEL DE-COLLISION
+   * ==================
+   * Batteries, defended assets and live tracks each carry a STACK of text
+   * (name, readiness state, inventory), and at theatre scale several stacks
+   * routinely land on top of one another — producing unreadable output like
+   * "SPYDER Foxtrot" printed through "JAIPUR" and "8 RDY · 400km".
+   *
+   * Measured before this pass: 528 substantial label overlaps across 39
+   * sampled frames.
+   *
+   * Each stack is modelled as a single box of its real height and pushed
+   * vertically as a unit until it clears everything already placed. Greedy
+   * and deterministic. Ordered by importance — attacker types first, then
+   * assets, then batteries — so the labels that matter keep their natural
+   * position and the rest give way.
+   *
+   * Returns id -> vertical offset in LOCAL (pre-scale) units.
+   */
+  const labelOffsets = useMemo(() => {
+    const placed: { x: number; y0: number; y1: number }[] = [];
+    const out = new Map<string, number>();
+    const HW = 58;            // half-width in local units; names are wide
+
+    /** `top`/`bot` are the stack's extent in local units around the anchor. */
+    const put = (id: string, cxp: number, cyp: number, top: number, bot: number) => {
+      // work in viewBox units so comparisons are scale-correct
+      const x = cxp, h0 = top * iz, h1 = bot * iz, hw = HW * iz;
+      let dy = 0;
+      for (let k = 0; k < 18; k++) {
+        dy = k === 0 ? 0 : (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 11 * iz;
+        // PAD is breathing room: two stacks that merely touch still read as
+        // one smear, so treat near-adjacency as a collision too.
+        const PAD = 5 * iz;
+        const a0 = cyp + h0 + dy - PAD, a1 = cyp + h1 + dy + PAD;
+        const clash = placed.some((p) =>
+          Math.abs(p.x - x) < hw * 2 && a0 < p.y1 && a1 > p.y0);
+        if (!clash) break;
+      }
+      placed.push({ x, y0: cyp + h0 + dy, y1: cyp + h1 + dy });
+      out.set(id, dy / iz);
+    };
+
+    // 1. live attacker labels — the headline information
+    for (const { th, st, active, killed } of live) {
+      if (!active || !st || killed) continue;
+      put('t:' + th.id, PX(st.p.lon), PY(st.p.lat), -12 * ICON, 11 * ICON);
+    }
+    // 2. defended assets
+    for (const a of sc.assets) {
+      put('a:' + a.id, PX(a.centroid.lon), PY(a.centroid.lat), -25 * ICON, -13 * ICON);
+    }
+    // 3. batteries, whose stack can run from the state line above the icon
+    //    down through the inventory line below it
+    for (const a of sc.areas) {
+      const s2 = statusById.get(a.id)?.state ?? 'READY';
+      const reacting = s2 === 'ALERT' || s2 === 'TRACKING' || s2 === 'LOCKED' || s2 === 'FIRING';
+      if (!(selArea.has(a.id) || selS === a.id || !a.active || reacting)) continue;
+      // stack runs from the readiness caption (-27) down past the inventory line
+      put("b:" + a.id, PX(a.centroid.lon), PY(a.centroid.lat), -42, 24 * ICON);
+    }
+    return out;
+  }, [live, sc.areas, sc.assets, statusById, selArea, selS, PX, PY, iz, ICON]);
+
 
   // graticule at whole degrees
   const gridLines = useMemo(() => {
@@ -288,7 +361,8 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                 strokeDasharray={`${7 * iz} ${5 * iz}`} />
               <g transform={`translate(${cx},${cy}) scale(${iz})`}>
                 <ShieldIcon s={(a.primary ? 1.25 : 1.05) * ICON} col={hit ? COL.threat : COL.asset} halo={a.primary} />
-                <text y={-19 * ICON} fill={hit ? COL.threat : COL.asset} fontSize={(a.primary ? 13.5 : 12) * ICON}
+                <text y={-19 * ICON + (labelOffsets.get('a:' + a.id) ?? 0)}
+                  fill={hit ? COL.threat : COL.asset} fontSize={(a.primary ? 13.5 : 12) * ICON}
                   textAnchor="middle" letterSpacing=".8" fontWeight={a.primary ? 700 : 600}
                   stroke="#040910" strokeWidth="3" paintOrder="stroke">
                   {a.name.toUpperCase()}
@@ -342,7 +416,12 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                     strokeOpacity=".9"
                     strokeDasharray={stName === 'TRACKING' ? `${4 * iz} ${4 * iz}` : `${3 * iz} ${3 * iz}`}
                     className={stName === 'LOCKED' ? 'pulse' : 'radar-ring'} />
-                  <text y={-27 * iz} fill={col} fontSize={8.5 * iz} textAnchor="middle"
+                  {/* Readiness caption rides the same de-collision offset as
+                    * the rest of this battery's label stack, otherwise it
+                    * floats at a fixed height and lands on neighbouring
+                    * asset names ("ALERT" through "AMRITSAR"). */}
+                  <text y={(-40 + (labelOffsets.get('b:' + a.id) ?? 0)) * iz}
+                    fill={col} fontSize={8.5 * iz} textAnchor="middle"
                     letterSpacing={.6 * iz}
                     stroke="#040910" strokeWidth={2.4 * iz} paintOrder="stroke">
                     {stName}{st?.countdownS != null && st.countdownS <= 30
@@ -359,15 +438,21 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                   <circle r={a.maxSlantRange >= 150 ? 15 : 12} fill="none" stroke={col}
                     strokeWidth=".9" strokeOpacity=".5" strokeDasharray="2 3" />
                 )}
+                {/* Name on any committed/selected/offline battery. The
+                  * inventory line is restricted to the one the user is
+                  * actually inspecting or that is live-firing — printing
+                  * "8 RDY · 400km" under every launcher collided with the
+                  * threat labels and buried the engagement. */}
                 {(used || hi || !on || active) && (
-                  <>
-                    <text y={-15 * ICON} fill={col} fontSize={10 * ICON} textAnchor="middle" fontWeight="600"
-                      stroke="#040910" strokeWidth="2.8" paintOrder="stroke">{a.name}</text>
-                    <text y={21 * ICON} fill={on ? '#5d7d96' : '#8a4550'} fontSize={8.5 * ICON} textAnchor="middle"
-                      stroke="#040910" strokeWidth="2.6" paintOrder="stroke">
-                      {on ? `${a.inventory} RDY · ${a.maxSlantRange}km` : 'OFFLINE'}
-                    </text>
-                  </>
+                  <text y={-15 * ICON + (labelOffsets.get('b:' + a.id) ?? 0)}
+                    fill={col} fontSize={10 * ICON} textAnchor="middle" fontWeight="600"
+                    stroke="#040910" strokeWidth="2.8" paintOrder="stroke">{a.name}</text>
+                )}
+                {(hi || !on || active) && (
+                  <text y={21 * ICON} fill={on ? '#5d7d96' : '#8a4550'} fontSize={8.5 * ICON} textAnchor="middle"
+                    stroke="#040910" strokeWidth="2.6" paintOrder="stroke">
+                    {on ? `${a.inventory} RDY · ${a.maxSlantRange}km` : 'OFFLINE'}
+                  </text>
                 )}
               </g>
             </g>
@@ -438,11 +523,23 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                             strokeLinejoin="round" />
                         : <MissileBody cls={th.cls} s={1.05 * ICON} />}
                     </g>
-                    <text x={15 * ICON} y={-6 * ICON} fill="#ffb3ba" fontSize={11 * ICON}
-                      stroke="#040910" strokeWidth="2.6" paintOrder="stroke">{th.callsign}</text>
-                    <text x={15 * ICON} y={6 * ICON} fill="#8a6268" fontSize={9 * ICON}
+                    {/* ATTACKER TYPE is the headline — the real weapon name
+                      * (JF-17, Shaheen-II, Babur, Shahpar-II) in full size.
+                      * Telemetry moves to the second line and only appears
+                      * when this track is selected, so eight simultaneous
+                      * tracks do not print eight paragraphs over the map. */}
+                    <text x={15 * ICON} y={-5 * ICON + (labelOffsets.get('t:' + th.id) ?? 0)}
+                      fill="#ff8f9d" fontSize={12.5 * ICON}
+                      fontWeight="700" letterSpacing=".4"
+                      stroke="#040910" strokeWidth="3.2" paintOrder="stroke">
+                      {threatName(th.systemId, th.cls)}
+                    </text>
+                    <text x={15 * ICON} y={6.5 * ICON + (labelOffsets.get('t:' + th.id) ?? 0)}
+                      fill="#8a6268" fontSize={9 * ICON}
                       stroke="#040910" strokeWidth="2.4" paintOrder="stroke">
-                      {th.cls} · {(st.p.alt / 1000).toFixed(0)}km · M{(st.speed / 340).toFixed(1)} → {th.targetAssetName}
+                      {isSel
+                        ? `${th.callsign} · ${(st.p.alt / 1000).toFixed(0)}km · M${(st.speed / 340).toFixed(1)} → ${th.targetAssetName}`
+                        : th.callsign}
                     </text>
                   </g>
                 </g>

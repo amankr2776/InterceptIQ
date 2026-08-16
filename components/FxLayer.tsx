@@ -1,7 +1,7 @@
 'use client';
 // InterceptIQ
 import React, { useEffect, useRef } from 'react';
-import { Particles, Shake } from '@/lib/fx';
+import { Particles } from '@/lib/fx';
 import type { AllocationSolution, Scenario } from '@/lib/types';
 import { stateAt } from '@/lib/geometry';
 import {
@@ -40,7 +40,6 @@ interface Props {
 export default function FxLayer({ sc, sol, t, playing, project, width, height }: Props) {
   const cv = useRef<HTMLCanvasElement>(null);
   const P = useRef(new Particles());
-  const SH = useRef(new Shake());
   const fired = useRef<Set<string>>(new Set());
   const blown = useRef<Set<string>>(new Set());
   const lastT = useRef(0);
@@ -75,7 +74,7 @@ export default function FxLayer({ sc, sol, t, playing, project, width, height }:
        * IndexSizeError from arc(). */
       const dt = Math.max(0, Math.min(0.05, (now - prev) / 1000));
       prev = now;
-      const parts = P.current, sh = SH.current;
+      const parts = P.current;
 
       g.clearRect(0, 0, width, height);
 
@@ -92,10 +91,10 @@ export default function FxLayer({ sc, sol, t, playing, project, width, height }:
         const st2 = stateAt(th, Math.min(th.impact.t, t + 1.2));
         const q = st2 ? project(st2.p.lat, st2.p.lon) : null;
         const ang = q ? Math.atan2(q.y - p.y, q.x - p.x) : 0;
-        if (playing) {
-          if (th.cls === 'AIRCRAFT' || th.cls === 'DRONE') parts.contrail(p.x, p.y);
-          else parts.exhaust(p.x, p.y, ang, th.cls === 'CRUISE' ? 0.45 : 0.8);
-        }
+        /* Thin trails only. A full motor plume on every one of eight
+         * simultaneous tracks buried the airframes in smoke — the icons are
+         * the information, the smoke is decoration. */
+        if (playing) parts.contrail(p.x, p.y);
       }
 
       /* ---- interceptor plumes, launch signatures, detonations ----
@@ -118,21 +117,23 @@ export default function FxLayer({ sc, sol, t, playing, project, width, height }:
 
         if (t >= o.tLaunch && !fired.current.has(key)) {
           fired.current.add(key);
-          parts.launchPlume(bp.x, bp.y); sh.kick(5);
+          parts.launchPlume(bp.x, bp.y);
         }
 
         if (ph.state === 'flying') {
           const p = interceptorAt(bp, ip, ph.f, loft, side);
           const ang = interceptorHeading(bp, ip, ph.f, loft, side);
-          if (playing) parts.exhaust(p.x, p.y, ang, 0.85);
+          // interceptors keep a real motor plume — they are the thing the
+          // user is being asked to watch — but a lean one
+          if (playing) parts.exhaust(p.x, p.y, ang, 0.5);
         }
 
         // terminal kill, or self-destruct if another round got there first
         if ((ph.state === 'terminal' || ph.state === 'destruct') && !blown.current.has(key)) {
           blown.current.add(key);
           const p = interceptorAt(bp, ip, ph.f, loft, side);
-          if (ph.aborted) { parts.detonate(p.x, p.y, 0.28); sh.kick(3); }
-          else { parts.detonate(p.x, p.y, 0.8); sh.kick(12); }
+          if (ph.aborted) parts.detonate(p.x, p.y, 0.22);
+          else parts.detonate(p.x, p.y, 0.55);
         }
       }
 
@@ -145,17 +146,18 @@ export default function FxLayer({ sc, sol, t, playing, project, width, height }:
         if (t >= th.impact.t && !blown.current.has(key)) {
           blown.current.add(key);
           const ip = project(th.impact.p.lat, th.impact.p.lon);
-          if (ip) { parts.detonate(ip.x, ip.y, 1.15); sh.kick(20); }
+          if (ip) parts.detonate(ip.x, ip.y, 0.9);
         }
       }
 
       parts.step(dt);
-      sh.step(dt);
 
-      g.save();
-      g.translate(sh.x, sh.y);
+      /* NO CAMERA SHAKE on the tactical map. Shake is a cinema device; on a
+       * console the operator is reading positions off a chart, and jolting
+       * the whole picture on every detonation makes the map unreadable
+       * exactly when the most is happening. The intro keeps its shake — that
+       * is a film. This is an instrument. */
       parts.draw(g);
-      g.restore();
 
       raf.current = requestAnimationFrame(frame);
     };

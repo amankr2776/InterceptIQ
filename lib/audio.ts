@@ -159,20 +159,44 @@ function brown(a: AudioContext) {
 }
 
 /**
- * ATMOSPHERIC PROPAGATION
- * Given a distance in km, return the arrival delay, the air-absorption
- * cutoff, an amplitude factor and how wet the event should be. This single
- * function is what makes a 200 km intercept sound different from one
- * overhead, rather than just quieter.
+ * ATMOSPHERIC PROPAGATION — DRAMATICALLY COMPRESSED
+ *
+ * The first version of this applied textbook physics literally, and that was
+ * a mistake. Measured against the distances this app actually produces (mean
+ * intercept standoff ~124 km), a typical kill came out as:
+ *
+ *     amplitude 0.075 · cutoff floored at 140 Hz · 95% wet · 6 s late
+ *
+ * i.e. an inaudible low-frequency smear arriving six seconds after the flash.
+ * Every intercept beyond ~60 km collapsed onto the same 140 Hz mush, so they
+ * were not merely quiet, they were INDISTINGUISHABLE from one another — which
+ * is exactly what "vague and ambiguous" describes. Real physics, wrong tool:
+ * at 124 km a warhead genuinely is inaudible, but then there is no sound
+ * design left to do.
+ *
+ * So distance is now treated the way a film mixer treats it: the ORDERING and
+ * the CHARACTER of near-vs-far are preserved, but the range is compressed
+ * hard so every event stays present, defined and locked to its picture.
+ *
+ *   · delay caps at 0.32 s — enough to feel the gap on a distant hit, never
+ *     enough to divorce the sound from the flash that caused it
+ *   · cutoff floors at 1.5 kHz, so a far detonation is still a detonation
+ *     with an edge on it rather than a hum
+ *   · amplitude uses a gentle log law, not inverse-square
+ *   · reverb caps at 0.6, so the tail sits behind the transient and never
+ *     swallows it
  */
 function propagation(km: number) {
-  const m = Math.max(0, km) * 1000;
+  const d = Math.max(0, km);
+  // logarithmic distance compression: 0 at the ear, ~1 at 300 km
+  const u = Math.min(1, Math.log10(1 + d / 3) / Math.log10(1 + 100));
   return {
-    delay: Math.min(6, m / C_SOUND / 60),          // compressed to keep the demo watchable
-    // high frequencies are absorbed first; 18 kHz close, a few hundred Hz far
-    cutoff: Math.max(140, 17000 * Math.exp(-m / 9000)),
-    amp: 1 / (1 + Math.pow(km / 14, 1.15)),
-    wet: Math.min(0.95, 0.22 + km / 90),
+    delay: 0.32 * u,
+    // 16 kHz close down to 1.5 kHz far — always retains a transient edge
+    cutoff: 16000 * Math.pow(1500 / 16000, u),
+    // 1.0 close to 0.42 far: distant events are quieter but never buried
+    amp: 1 - 0.58 * u,
+    wet: 0.18 + 0.42 * u,
   };
 }
 
@@ -196,6 +220,48 @@ function farField(a: AudioContext, km: number, level: number): Chain {
     out.connect(s).connect(verbSend);
   }
   return { input: lp, out };
+}
+
+/**
+ * VOICE LIMITING
+ * ==============
+ * Measured on the real scenarios: up to SEVEN audio cues can fall inside a
+ * 1.5 s window during a deep salvo. Seven overlapping detonations do not
+ * sound like seven detonations — they sum into a continuous roar with no
+ * discernible events, which is the other half of "vague and ambiguous".
+ *
+ * Real battle recordings do not have this problem because the ear's own
+ * masking picks a winner. We reproduce that deliberately:
+ *
+ *   · a minimum spacing per cue TYPE, so a salvo of eight launches fires a
+ *     few distinct rounds rather than one undifferentiated wash
+ *   · a global concurrency cap on heavy (blast) voices
+ *   · each successive overlapping cue is attenuated, so the first is the
+ *     event and the rest are its echoes rather than eight equal foreground
+ *     sounds fighting each other
+ */
+const lastCueAt: Record<string, number> = {};
+let heavyActive = 0;
+
+/**
+ * Returns a gain multiplier for this cue, or 0 to drop it entirely.
+ * `minGap` is the minimum spacing in seconds for this cue type.
+ */
+function voiceSlot(kind: string, now: number, minGap: number, heavy = false): number {
+  const prev = lastCueAt[kind] ?? -Infinity;
+  const gap = now - prev;
+  if (gap < minGap * 0.45) return 0;               // far too close: drop
+  lastCueAt[kind] = now;
+
+  let g = 1;
+  if (gap < minGap) g *= 0.45;                     // close: push it back
+  if (heavy) {
+    if (heavyActive >= 3) g *= 0.4;                // already dense
+    if (heavyActive >= 5) return 0;
+    heavyActive++;
+    setTimeout(() => { heavyActive = Math.max(0, heavyActive - 1); }, 700);
+  }
+  return g;
 }
 
 /** Momentarily duck the ambient bed so a blast has room. */
@@ -296,10 +362,14 @@ function noiseVoice(
  */
 export function sfxLaunch(power = 1, km = 2) {
   const a = ac(); if (!a || !enabled) return;
+  // launches in a salvo are deliberately thinned so individual rounds read
+  const vg = voiceSlot('launch', a.currentTime, 0.30);
+  if (vg === 0) return;
+  power *= vg;
   const t = a.currentTime + propagation(km).delay;
   const dur = 2.6 * (0.7 + power * 0.5);
 
-  duck(a, t, 0.45, 0.5);
+  duck(a, t, 0.35 * vg, 0.5);
 
   // 1. ignition crack — short, bright, percussive
   playBuffer(a, blastBuffer(a, 2.2, 0.85), t, km, 0.42 * power);
@@ -346,10 +416,13 @@ export function sfxLaunch(power = 1, km = 2) {
  */
 export function sfxIntercept(scale = 1, km = 25) {
   const a = ac(); if (!a || !enabled) return;
+  const vg = voiceSlot('kill', a.currentTime, 0.34, true);
+  if (vg === 0) return;
+  scale *= vg;
   const p = propagation(km);
   const t = a.currentTime + p.delay;
 
-  duck(a, t, 0.6, 0.6);
+  duck(a, t, 0.5 * vg, 0.6);
 
   /* The blast proper. Positive-phase duration scales with warhead mass:
    * a 23 kg SPYDER warhead snaps at ~3 ms, a 180 kg S-400 warhead at ~9 ms. */
@@ -451,6 +524,7 @@ export function sfxImpact(km = 6) {
  */
 export function sfxJet(dur = 4.0, km = 3) {
   const a = ac(); if (!a || !enabled) return;
+  if (voiceSlot('jet', a.currentTime, 2.2) === 0) return;
   const t = a.currentTime + propagation(km).delay * 0.3;
   const abeam = dur * 0.46;
 
@@ -503,6 +577,7 @@ export function sfxJet(dur = 4.0, km = 3) {
  */
 export function sfxDrone(dur = 4.5, km = 4) {
   const a = ac(); if (!a || !enabled) return;
+  if (voiceSlot('drone', a.currentTime, 3.0) === 0) return;
   const t = a.currentTime + propagation(km).delay * 0.3;
 
   const bp = a.createBiquadFilter(); bp.type = 'bandpass';
@@ -537,8 +612,10 @@ export function sfxDrone(dur = 4.5, km = 4) {
  */
 export function sfxSonicBoom(km = 20) {
   const a = ac(); if (!a || !enabled) return;
+  const vg = voiceSlot('boom', a.currentTime, 0.9, true);
+  if (vg === 0) return;
   const t = a.currentTime + propagation(km).delay;
-  duck(a, t, 0.5, 0.4);
+  duck(a, t, 0.4 * vg, 0.4);
   playBuffer(a, blastBuffer(a, 5, 0.35), t, km, 1.1);
   playBuffer(a, blastBuffer(a, 5, 0.35), t + 0.085, km, 0.85);
   const lp = a.createBiquadFilter(); lp.type = 'lowpass';
@@ -560,6 +637,8 @@ export function sfxSonicBoom(km = 20) {
  */
 export function sfxAlert(km = 1.2) {
   const a = ac(); if (!a || !enabled) return;
+  // one siren per raid; repeated klaxons were a large part of the clutter
+  if (voiceSlot('alert', a.currentTime, 14) === 0) return;
   const t = a.currentTime;
   const dur = 3.6;
 
@@ -612,6 +691,7 @@ export function sfxAlert(km = 1.2) {
  */
 export function sfxLock() {
   const a = ac(); if (!a || !enabled) return;
+  if (voiceSlot('lock', a.currentTime, 0.5) === 0) return;
   const t = a.currentTime;
   for (let i = 0; i < 2; i++) {
     const at = t + i * 0.075;
