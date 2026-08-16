@@ -2,6 +2,7 @@ import { makeRng } from './rng';
 import { INTERCEPTORS, THREATS, type InterceptorSpec, type ThreatSpec } from './systems';
 import { THEATRES, sectorById, type Theatre } from './theatre';
 import { findHostileLaunch, inIndia } from './border';
+import { findSite } from './siting';
 import type {
   Scenario, Threat, LaunchArea, DefendedAsset, TrajectorySample, ThreatClass,
 } from './types';
@@ -194,14 +195,13 @@ export function generateScenario(opts: GenOpts): Scenario {
   if (!pool.length) throw new Error(`No valid interceptor systems for tier "${opts.tier}"`);
 
   const areas: LaunchArea[] = [];
+  const placed: { lat: number; lon: number }[] = [];
   for (let i = 0; i < nAreas; i++) {
     const spec: InterceptorSpec = pool[i % pool.length];
     // Place against the sector this battery defends, offset along the threat
     // axis so its envelope covers the approach rather than the rear.
     const a = assets[i % assets.length];
     const arc = theatre.threatArc;
-    const lo = arc[0], hi = arc[1] < arc[0] ? arc[1] + 360 : arc[1];
-    const bear = ((rng.range(lo - 45, hi + 45) % 360) + 360) % 360;
 
     /* Stand-off doctrine.
      * Long-range area-defence systems sit well forward so their large
@@ -213,22 +213,43 @@ export function generateScenario(opts: GenOpts): Scenario {
      * flew straight through. */
     const lowAlt = spec.altM[1] <= 20000;
     const off = lowAlt
-      ? Math.min(spec.rangeKm[1] * rng.range(0.10, 0.28), a.radiusKm + 18)
+      ? Math.min(spec.rangeKm[1] * rng.range(0.10, 0.28), a.radiusKm + 22)
       : Math.min(spec.rangeKm[1] * rng.range(0.20, 0.45), span * 0.28);
-    const bLat = a.centroid.lat + (off * Math.cos((bear * Math.PI) / 180)) / KM_LAT;
-    const bLon = a.centroid.lon + (off * Math.sin((bear * Math.PI) / 180)) / kmLon(a.centroid.lat);
 
-    // deployment polygon footprint (battery dispersal, ~2-4 km across)
+    /* Separation scales with the system's reach: a 400 km S-400 gains nothing
+     * from sitting beside another S-400, whereas point-defence units
+     * legitimately cluster closer around the asset they protect. */
+    const minSep = Math.max(25, Math.min(spec.rangeKm[1] * 0.45, 130));
+
+    const site = findSite({
+      anchor: { lat: a.centroid.lat, lon: a.centroid.lon },
+      arc: [arc[0] - 45, (arc[1] < arc[0] ? arc[1] + 360 : arc[1]) + 45],
+      standoffKm: off,
+      minSepKm: minSep,
+      placed,
+      rnd: rng.next,
+    });
+    placed.push(site);
+    const bLat = site.lat, bLon = site.lon;
+
+    /* Deployment polygon footprint (battery dispersal, ~2-4 km across).
+     * The centroid is guaranteed on national soil, but a footprint drawn
+     * around a coastal site can still spill into the sea, so each vertex is
+     * pulled back toward the centroid until it sits on land. */
     const rk = rng.range(1.8, 3.4);
     const poly: { lat: number; lon: number }[] = [];
     const nv = 6;
     for (let v = 0; v < nv; v++) {
       const t = (2 * Math.PI * v) / nv;
-      const r = rk * (0.75 + 0.5 * rng.next());
-      poly.push({
-        lat: +(bLat + (r * Math.sin(t)) / KM_LAT).toFixed(6),
-        lon: +(bLon + (r * Math.cos(t)) / kmLon(bLat)).toFixed(6),
-      });
+      let r = rk * (0.75 + 0.5 * rng.next());
+      let vLat = bLat + (r * Math.sin(t)) / KM_LAT;
+      let vLon = bLon + (r * Math.cos(t)) / kmLon(bLat);
+      for (let k = 0; k < 6 && !inIndia(vLat, vLon); k++) {
+        r *= 0.55;
+        vLat = bLat + (r * Math.sin(t)) / KM_LAT;
+        vLon = bLon + (r * Math.cos(t)) / kmLon(bLat);
+      }
+      poly.push({ lat: +vLat.toFixed(6), lon: +vLon.toFixed(6) });
     }
 
     areas.push({

@@ -1,6 +1,8 @@
 import { makeRng } from './rng';
 import { INTERCEPTORS, type InterceptorSpec } from './systems';
 import { SECTORS, THEATRES } from './theatre';
+import { findSite } from './siting';
+
 
 /**
  * NATIONAL AIR-DEFENCE LAYDOWN
@@ -82,8 +84,6 @@ const layerOf = (role: InterceptorSpec['role']): NationalBattery['layer'] =>
   : role === 'MR-SAM' ? 'Medium-range'
   : 'Point defence';
 
-const KM_LAT = 110.574;
-const kmLon = (lat: number) => 111.32 * Math.cos((lat * Math.PI) / 180);
 
 export interface NationalLaydown {
   batteries: NationalBattery[];
@@ -109,13 +109,23 @@ export function buildNationalLaydown(seed = 20260816): NationalLaydown {
       const spec = INTERCEPTORS.find((x) => x.id === sysId)!;
       // spread around the threat axis; longer-range systems sit further back
       const spread = 128;
-      const bear = (arcMid - spread / 2 + (spread * (i + 0.5)) / tmpl.length + rng.range(-16, 16) + 360) % 360;
+      const bear = (arcMid - spread / 2 + (spread * (i + 0.5)) / tmpl.length + 360) % 360;
       const standoff = Math.min(
         spec.rangeKm[1] * rng.range(0.16, 0.34),
         s.radiusKm + 62
       );
-      const lat = s.lat + (standoff * Math.cos((bear * Math.PI) / 180)) / KM_LAT;
-      const lon = s.lon + (standoff * Math.sin((bear * Math.PI) / 180)) / kmLon(s.lat);
+      /* Site on national soil and dispersed from every battery already placed
+       * anywhere in the country — not just this sector — so neighbouring
+       * sectors' units do not end up stacked on a shared boundary. */
+      const site = findSite({
+        anchor: { lat: s.lat, lon: s.lon },
+        arc: [bear - 55, bear + 55],
+        standoffKm: standoff,
+        minSepKm: Math.max(22, Math.min(spec.rangeKm[1] * 0.32, 90)),
+        placed: batteries.map((b) => ({ lat: b.lat, lon: b.lon })),
+        rnd: rng.next,
+      });
+      const lat = site.lat, lon = site.lon;
       batteries.push({
         id: `${s.id}-B${i + 1}`,
         unit: UNITS[u++ % UNITS.length],
@@ -138,14 +148,21 @@ export function buildNationalLaydown(seed = 20260816): NationalLaydown {
       .map((id) => INTERCEPTORS.find((x) => x.id === id)!)
       .sort((a, b) => b.radarDetectKm - a.radarDetectKm)[0];
     const rb = (arcMid + rng.range(-40, 40) + 360) % 360;
-    const roff = rng.range(6, 20);
+    const rsite = findSite({
+      anchor: { lat: s.lat, lon: s.lon },
+      arc: [rb - 60, rb + 60],
+      standoffKm: rng.range(8, 20),
+      minSepKm: 14,
+      placed: radars.map((r) => ({ lat: r.lat, lon: r.lon })),
+      rnd: rng.next,
+    });
     radars.push({
       id: `${s.id}-R1`,
       name: `${s.name} Surveillance`,
       type: best.radar.split('(')[0].split('+')[0].trim(),
       sectorId: s.id,
-      lat: +(s.lat + (roff * Math.cos((rb * Math.PI) / 180)) / KM_LAT).toFixed(5),
-      lon: +(s.lon + (roff * Math.sin((rb * Math.PI) / 180)) / kmLon(s.lat)).toFixed(5),
+      lat: +rsite.lat.toFixed(5),
+      lon: +rsite.lon.toFixed(5),
       detectKm: best.radarDetectKm,
       band: best.radarDetectKm >= 500 ? 'S/L-band phased array'
         : best.radarDetectKm >= 200 ? 'S-band AESA'
