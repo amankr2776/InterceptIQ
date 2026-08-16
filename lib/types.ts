@@ -110,7 +110,9 @@ export interface EngagementOption {
   threatId: string;
   feasible: boolean;
   reason?: string;
-  tLaunch: number;        // s
+  tLaunch: number;        // s — when the round actually leaves the rail
+  /** Interceptor time-of-flight, launch -> intercept, seconds. */
+  flightTimeS?: number;
   tIntercept: number;     // s
   timeMarginS: number;    // tImpact - tIntercept
   interceptPoint: GeoPoint;

@@ -408,8 +408,22 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
           const x0 = PX(a.centroid.lon), y0 = PY(a.centroid.lat);
           const x1 = PX(o.interceptPoint.lon), y1 = PY(o.interceptPoint.lat);
           const done = t >= o.tIntercept;
+          // Highlight the battery in the seconds before it fires, so a viewer
+          // scrubbing the timeline can see an engagement about to happen
+          // rather than only catching the short fly-out window.
+          const arming = t >= o.tLaunch - 25 && t < o.tLaunch;
           return (
             <g key={i}>
+              {arming && (
+                <g transform={`translate(${x0},${y0})`}>
+                  <circle r={13 * iz} fill="none" stroke={COL.intcp} strokeWidth={1.4 * iz}
+                    strokeOpacity=".85" strokeDasharray={`${3 * iz} ${3 * iz}`} className="pulse" />
+                  <text y={-20 * iz} fill={COL.intcp} fontSize={9 * iz} textAnchor="middle"
+                    stroke="#040910" strokeWidth={2.4 * iz} paintOrder="stroke">
+                    FIRING IN {(o.tLaunch - t).toFixed(0)}s
+                  </text>
+                </g>
+              )}
               {/* planned fly-out corridor */}
               <line x1={x0} y1={y0} x2={x1} y2={y1} stroke={COL.intcp}
                 strokeOpacity={done ? .12 : .28} strokeWidth={.9 * iz}

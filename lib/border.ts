@@ -54,12 +54,59 @@ function inRing(lon: number, lat: number, r: Ring): boolean {
   return inside;
 }
 
-/** True if the point lies inside the given country's landmass. */
+/** Strict point-in-polygon against the simplified border rings. */
 export function inCountry(lat: number, lon: number, iso = 'IND'): boolean {
   return ringsFor(iso).some((r) => inRing(lon, lat, r));
 }
 
-export const inIndia = (lat: number, lon: number) => inCountry(lat, lon, 'IND');
+/** Shortest distance (deg) from a point to a ring's edges. */
+function distToRing(lon: number, lat: number, r: Ring): number {
+  const p = r.pts;
+  let best = Infinity;
+  for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
+    const ax = p[j][0], ay = p[j][1], bx = p[i][0], by = p[i][1];
+    const dx = bx - ax, dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    let t = len2 > 0 ? ((lon - ax) * dx + (lat - ay) * dy) / len2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    const cx = ax + t * dx, cy = ay + t * dy;
+    const d = Math.hypot(lon - cx, lat - cy);
+    if (d < best) best = d;
+  }
+  return best;
+}
+
+/**
+ * Territory test with a coastal tolerance band.
+ *
+ * The bundled borders are Douglas-Peucker simplified to ~4 km, which cuts
+ * corners on intricate coastlines. Strict point-in-polygon therefore reports
+ * genuinely inland locations as "outside" — the southern tip of Mumbai
+ * (Colaba) being the clearest case. Treating anything within `tolDeg` of the
+ * boundary as inside removes that class of false negative while still
+ * rejecting real open water and foreign territory.
+ *
+ * ~0.08 deg is roughly 9 km: above the worst simplification error on narrow
+ * peninsulas, still far below the 40 km+ standoff the launch solver enforces,
+ * so it cannot cause a hostile launcher to be accepted on Indian soil.
+ */
+export function inCountryTolerant(lat: number, lon: number, iso = 'IND', tolDeg = 0.08): boolean {
+  const rings = ringsFor(iso);
+  for (const r of rings) if (inRing(lon, lat, r)) return true;
+  for (const r of rings) {
+    if (lon < r.minLon - tolDeg || lon > r.maxLon + tolDeg ||
+        lat < r.minLat - tolDeg || lat > r.maxLat + tolDeg) continue;
+    if (distToRing(lon, lat, r) <= tolDeg) return true;
+  }
+  return false;
+}
+
+/** Default territory test used across the app. */
+export const inIndia = (lat: number, lon: number) => inCountryTolerant(lat, lon, 'IND');
+
+/** Strict variant — used when choosing hostile launch points, where we want
+ *  no ambiguity about being clear of the frontier. */
+export const inIndiaStrict = (lat: number, lon: number) => inCountry(lat, lon, 'IND');
 
 const KM_LAT = 110.574;
 const kmLon = (lat: number) => 111.32 * Math.cos((lat * Math.PI) / 180);
@@ -89,7 +136,7 @@ export function exitDistanceKm(
   let firstOut: number | null = null;
   for (let d = stepKm; d <= maxKm; d += stepKm) {
     const p = project(aimLat, aimLon, bearingDeg, d);
-    const out = !inIndia(p.lat, p.lon);
+    const out = !inCountryTolerant(p.lat, p.lon, 'IND', 0.045);
     if (out) {
       if (firstOut === null) firstOut = d;
       if (d - firstOut >= clearKm) return firstOut;
@@ -130,7 +177,7 @@ export function findHostileLaunch(
     if (low > rangeMaxKm) return null;
     const rangeKm = low + rnd() * (rangeMaxKm - low);
     const o = project(aimLat, aimLon, bearing, rangeKm);
-    if (inIndia(o.lat, o.lon)) return null;        // final guard
+    if (inCountryTolerant(o.lat, o.lon, 'IND', 0.045)) return null;   // final guard
     return { bearingFrom: bearing, rangeKm };
   };
 

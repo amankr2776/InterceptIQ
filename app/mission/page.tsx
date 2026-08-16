@@ -116,7 +116,7 @@ export default function MissionDetail() {
                   <tr>
                     <th style={{ width: 26 }}></th><th>Incoming threat</th>
                     <th style={{ width: 26 }}></th><th>Interceptor site</th>
-                    <th>Launch</th><th>Destroys at</th><th>Altitude</th>
+                    <th>Launch</th><th>Flight</th><th>Destroys at</th><th>Altitude</th>
                     <th>From asset</th><th>Pk</th>
                   </tr>
                 </thead>
@@ -128,7 +128,7 @@ export default function MissionDetail() {
                         <tr key={th.id} style={{ borderTop: '1px solid var(--line)' }}>
                           <td><ThreatChip /></td>
                           <td style={{ color: COL.threat }}>{th.callsign} <span style={{ color: 'var(--dim2)' }}>{th.cls}</span></td>
-                          <td colSpan={7} style={{ color: COL.threat }}>
+                          <td colSpan={8} style={{ color: COL.threat }}>
                             LEAKER — no site can reach it before it strikes {asset.name}
                           </td>
                         </tr>
@@ -145,6 +145,7 @@ export default function MissionDetail() {
                           <td><IntcpChip /></td>
                           <td style={{ color: COL.intcp }}>{a.name}</td>
                           <td style={{ color: 'var(--dim)' }}>{clock(s.option.tLaunch)}</td>
+                          <td style={{ color: COL.intcp }}>{(s.option.tIntercept - s.option.tLaunch).toFixed(0)}s</td>
                           <td style={{ color: 'var(--dim)' }}>{clock(s.option.tIntercept)}</td>
                           <td>{(s.option.interceptAltM / 1000).toFixed(1)} km</td>
                           <td style={{ color: COL.burst }}>

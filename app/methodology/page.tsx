@@ -48,17 +48,29 @@ export default function Methodology() {
   const runBench = async () => {
     setRunning(true); setBench(null);
     await new Promise((r) => setTimeout(r, 40));
+    /* Sizes chosen to stay interactive. Certified search is exponential in the
+     * number of candidate sites: 10 sites is 1023 subsets and takes >12s on a
+     * laptop, which blocks the UI thread. We benchmark up to 9 sites and state
+     * the limit rather than freezing the page. Each config is run in its own
+     * task so the browser can paint between rows. */
     const cfgs: [string, number, number][] = [
       ['Small', 3, 3], ['Typical', 5, 5], ['Large', 8, 7],
-      ['Stress', 12, 8], ['Heavy', 15, 8], ['Max certified', 20, 10],
+      ['Stress', 12, 8], ['Heavy', 15, 9],
     ];
-    const out = cfgs.map(([label, nT, nA]) => {
+    const out: typeof bench = [];
+    for (const [label, nT, nA] of cfgs) {
+      await new Promise((r) => setTimeout(r, 0));   // yield so the UI updates
       const s = generateScenario({ tier: 'random', seed: 4242, nThreats: nT, nAreas: nA, theatreId: 'NW' });
       const t0 = performance.now();
       const r = allocateMinimalSet(s);
-      return { label, nT, nA, ms: Math.round(performance.now() - t0), subsets: r.metrics.subsetsEvaluated ?? 0 };
-    });
-    setBench(out); setRunning(false);
+      out!.push({
+        label, nT: s.threats.length, nA: s.areas.length,
+        ms: Math.round(performance.now() - t0),
+        subsets: r.metrics.subsetsEvaluated ?? 0,
+      });
+      setBench([...out!]);   // stream results in as they complete
+    }
+    setRunning(false);
   };
 
   return (
@@ -171,6 +183,8 @@ export default function Methodology() {
             </div>
             <div style={{ fontSize: 9.5, color: 'var(--dim2)', marginBottom: 9, lineHeight: 1.55 }}>
               Measured live in your browser when you press the button — not pre-recorded numbers.
+              Certified search is exponential in candidate-site count, so the benchmark stops at
+              9 sites; beyond ~10 the solver reports HEURISTIC rather than block on a 2<sup>n</sup> search.
               Current live scenario solved in <b style={{ color: 'var(--cy)' }}>{sol?.metrics.solveMs ?? '—'} ms</b>
               {sol?.metrics.subsetsEvaluated ? ` after evaluating ${sol.metrics.subsetsEvaluated} candidate subsets.` : '.'}
             </div>

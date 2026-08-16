@@ -39,7 +39,12 @@ export function solveEngagement(
   ctx: SolveCtx
 ): EngagementOption {
   const L: LocalPoint = { x: area.centroidLocal.x, y: area.centroidLocal.y, z: 0 };
-  const tLaunch = ctx.tNow + area.reactionTime;
+  /* Earliest the battery could physically fire. The ACTUAL launch time is
+   * computed after the intercept point is chosen — a battery does not fire and
+   * then let the round loiter for minutes, it fires so the interceptor arrives
+   * at the intercept point. See tLaunchActual below. */
+  const tReady = ctx.tNow + area.reactionTime;
+  const tLaunch = tReady;
   const vi = area.interceptorSpeed / 1000; // km/s
   // Effective floor = the battery's own published minimum, never higher.
   const floor = Math.min(ctx.keepOutAltM ?? 0, area.minEngageAlt);
@@ -144,9 +149,20 @@ export function solveEngagement(
   const threatSpeed = speedAt(traj, hit.t);
   const closing = threatSpeed * Math.cos((aspect * Math.PI) / 180) + area.interceptorSpeed;
 
+  /* LAUNCH TIME.
+   * The interceptor needs range/speed seconds of flight. Fire so it arrives
+   * exactly at the intercept point, never earlier than the battery is ready.
+   * Previously tLaunch was pinned to tReady, so a round committed against a
+   * distant future intercept appeared to sit on the launcher for minutes
+   * before moving. */
+  const flightS = hit.range / vi;
+  const tLaunchActual = Math.max(tReady, hit.t - flightS);
+
   return {
     ...base,
     feasible: true,
+    tLaunch: +tLaunchActual.toFixed(2),
+    flightTimeS: +Math.min(flightS, hit.t - tLaunchActual).toFixed(2),
     tIntercept: +hit.t.toFixed(2),
     timeMarginS: +margin.toFixed(2),
     interceptPoint: toGeo(hit.p, ctx.origin),

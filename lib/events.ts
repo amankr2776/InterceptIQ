@@ -62,7 +62,7 @@ export function buildEventLog(sc: Scenario, sol: AllocationSolution | null): Log
       });
       ev.push({
         t: o.tLaunch, kind: 'LAUNCH',
-        text: `${a.name} launches interceptor at ${th.callsign} — ${(o.tIntercept - o.tLaunch).toFixed(0)}s flight to intercept point`,
+        text: `${a.name} launches interceptor at ${th.callsign} — ${(o.tIntercept - o.tLaunch).toFixed(0)}s flight, ${o.slantRangeKm.toFixed(0)} km to intercept point`,
       });
       ev.push({
         t: o.tIntercept, kind: 'KILL',

@@ -135,7 +135,8 @@ export default function Inspector({ sc, sol, t, sel, onSel }: {
                       <b style={{ color: COL.burst }}>destroys {th.callsign}</b> {clock(s.option.tIntercept)}<br />
                       Destroyed at {(s.option.interceptAltM / 1000).toFixed(1)} km altitude
                       {s.option.standoffFromAssetKm !== undefined && <>, <b style={{ color: COL.burst }}>{s.option.standoffFromAssetKm} km from {th.targetAssetName}</b></>}<br />
-                      Interceptor flies {s.option.slantRangeKm.toFixed(1)} km · aspect {s.option.aspectAngleDeg.toFixed(0)}° · closing {s.option.closingSpeed} m/s<br />
+                      Interceptor flies {s.option.slantRangeKm.toFixed(1)} km in{' '}
+                      {(s.option.tIntercept - s.option.tLaunch).toFixed(1)}s · aspect {s.option.aspectAngleDeg.toFixed(0)}° · closing {s.option.closingSpeed} m/s<br />
                       {s.option.timeMarginS.toFixed(1)} s to spare before the threat would have struck
                       {s.option.windowOpenS !== undefined && <> · firing window {s.option.windowOpenS.toFixed(0)}–{s.option.windowCloseS?.toFixed(0)}s</>}
                     </div>
