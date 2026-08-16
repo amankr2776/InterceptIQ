@@ -55,35 +55,7 @@ export function Section({ title, right, children, style }: { title: string; righ
   );
 }
 
-/** Simplified NATO APP-6 style track symbol. Hostile = red, air track. */
-export function ThreatSymbol({ cls, size = 13, color = 'var(--red)', filled = true }: { cls: string; size?: number; color?: string; filled?: boolean }) {
-  const s = size;
-  const fill = filled ? color : 'none';
-  if (cls === 'CRUISE') {
-    // arrow — air-breathing cruise profile
-    return <svg width={s} height={s} viewBox="0 0 20 20"><path d="M10 1 L18 17 L10 13 L2 17 Z" fill={fill} stroke={color} strokeWidth="1.6" strokeLinejoin="round" /></svg>;
-  }
-  if (cls === 'TBM') {
-    // triangle — tactical ballistic
-    return <svg width={s} height={s} viewBox="0 0 20 20"><path d="M10 2 L18.5 17.5 L1.5 17.5 Z" fill={fill} stroke={color} strokeWidth="1.6" strokeLinejoin="round" /></svg>;
-  }
-  if (cls === 'MRBM') {
-    // double chevron — medium-range ballistic
-    return <svg width={s} height={s} viewBox="0 0 20 20"><path d="M10 1.5 L18.5 10 L10 18.5 L1.5 10 Z" fill={fill} stroke={color} strokeWidth="1.6" strokeLinejoin="round" /><path d="M10 6 L14 10 L10 14 L6 10 Z" fill="var(--bg)" opacity=".55" /></svg>;
-  }
-  // SRBM — diamond
-  return <svg width={s} height={s} viewBox="0 0 20 20"><path d="M10 1.5 L18.5 10 L10 18.5 L1.5 10 Z" fill={fill} stroke={color} strokeWidth="1.6" strokeLinejoin="round" /></svg>;
-}
-
-/** SVG-space version of the same symbology, for use inside the map. */
-export function symbolPath(cls: string): string {
-  switch (cls) {
-    case 'CRUISE': return 'M0,-9 L8,8 L0,4 L-8,8 Z';
-    case 'TBM':    return 'M0,-9 L8.5,8 L-8.5,8 Z';
-    case 'MRBM':   return 'M0,-9 L9,0 L0,9 L-9,0 Z';
-    default:       return 'M0,-8 L8,0 L0,8 L-8,0 Z'; // SRBM
-  }
-}
+export { ThreatSymbol, symbolPath } from './symbolsCompat';
 
 export function Bar({ v, max = 1, c = 'var(--grn)', h = 5 }: { v: number; max?: number; c?: string; h?: number }) {
   return (

@@ -29,9 +29,9 @@ export default function Timeline({
         <div style={{ display: 'flex', gap: 11, fontSize: 8.5, color: 'var(--dim2)' }}>
           <Legend c="var(--cy)" s="circle" t="DETECTED" />
           <Legend c="var(--vio)" s="diamond" t="DECISION" />
-          <Legend c="var(--amb)" s="tri" t="LAUNCH" />
-          <Legend c="var(--grn)" s="circle" t="INTERCEPT" />
-          <Legend c="var(--red)" s="cross" t="IMPACT" />
+          <Legend c="var(--intcp)" s="tri" t="LAUNCH" />
+          <Legend c="var(--burst)" s="circle" t="THREAT DESTROYED" />
+          <Legend c="var(--threat)" s="cross" t="STRIKES ASSET" />
         </div>
         <span style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--amb)' }}>T+{t.toFixed(1)}s / {tMax.toFixed(0)}s</span>
       </div>
@@ -39,21 +39,21 @@ export default function Timeline({
       <div style={{ position: 'relative', padding: '7px 12px 3px', maxHeight: 118, overflowY: 'auto' }}>
         {rows.map((r) => (
           <div key={r.th.id} style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
-            <span style={{ width: 52, fontSize: 9.5, color: r.leaker ? 'var(--red)' : 'var(--dim)', flexShrink: 0 }}>
+            <span style={{ width: 52, fontSize: 9.5, color: r.leaker ? 'var(--threat)' : 'var(--dim)', flexShrink: 0 }}>
               {r.th.callsign}
             </span>
             <div style={{ position: 'relative', flex: 1, height: 13, background: 'var(--bg2)', border: '1px solid var(--line)', borderRadius: 1 }}>
               {/* flight span */}
-              <div style={{ position: 'absolute', left: pct(r.detect), width: pct(r.impact - r.detect), top: 5, height: 2, background: r.leaker ? 'rgba(244,63,94,.4)' : 'rgba(93,113,134,.4)' }} />
+              <div style={{ position: 'absolute', left: pct(r.detect), width: pct(r.impact - r.detect), top: 5, height: 2, background: r.leaker ? 'rgba(244,63,94,.55)' : 'rgba(244,63,94,.28)' }} />
               {/* engagement span */}
               {r.launch !== null && r.intercept !== null && (
-                <div style={{ position: 'absolute', left: pct(r.launch), width: pct(r.intercept - r.launch), top: 4, height: 4, background: 'rgba(255,176,32,.55)' }} />
+                <div style={{ position: 'absolute', left: pct(r.launch), width: pct(r.intercept - r.launch), top: 4, height: 4, background: 'rgba(77,163,255,.6)' }} />
               )}
               <Mark x={pct(r.detect)} c="var(--cy)" s="circle" />
               {r.decide !== null && <Mark x={pct(r.decide)} c="var(--vio)" s="diamond" />}
-              {r.launch !== null && <Mark x={pct(r.launch)} c="var(--amb)" s="tri" />}
-              {r.intercept !== null && <Mark x={pct(r.intercept)} c="var(--grn)" s="circle" />}
-              {(r.leaker || r.intercept === null) && <Mark x={pct(r.impact)} c="var(--red)" s="cross" />}
+              {r.launch !== null && <Mark x={pct(r.launch)} c="var(--intcp)" s="tri" />}
+              {r.intercept !== null && <Mark x={pct(r.intercept)} c="var(--burst)" s="circle" />}
+              {(r.leaker || r.intercept === null) && <Mark x={pct(r.impact)} c="var(--threat)" s="cross" />}
               {/* playhead */}
               <div style={{ position: 'absolute', left: pct(Math.min(t, tMax)), top: -1, bottom: -1, width: 1, background: 'var(--amb)' }} />
             </div>

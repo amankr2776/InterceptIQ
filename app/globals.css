@@ -68,3 +68,25 @@ td { padding: 4px 7px; }
 @keyframes sweep { from { transform: rotate(0) } to { transform: rotate(360deg) } }
 @keyframes fadein { from { opacity: 0; transform: translateY(-3px) } to { opacity: 1; transform: none } }
 .fadein { animation: fadein .22s ease-out; }
+
+/* ============================================================
+   ENGAGEMENT VISUAL LANGUAGE  (foundational clarity conventions)
+   Red   = incoming threat        (dashed, marching toward asset)
+   Blue  = interceptor response   (solid, marching outward to intercept)
+   Gold  = protected asset        (shield)
+   Green = successful intercept   (burst)
+   ============================================================ */
+:root {
+  --threat:  #f43f5e;   /* incoming */
+  --intcp:   #4da3ff;   /* outgoing interceptor */
+  --asset:   #ffc247;   /* protected asset */
+  --burst:   #34d399;   /* kill */
+}
+@keyframes march      { to { stroke-dashoffset: -1000; } }
+@keyframes marchOut   { to { stroke-dashoffset: -600; } }
+@keyframes burstRing  { 0% { r: 3; opacity: 1 } 100% { r: 26; opacity: 0 } }
+@keyframes shieldPulse{ 0%,100% { opacity: .5 } 50% { opacity: .9 } }
+.threat-line { animation: march 9s linear infinite; }
+.intcp-line  { animation: marchOut 1.6s linear infinite; }
+.burst-ring  { animation: burstRing 1.5s ease-out infinite; }
+.shield-halo { animation: shieldPulse 3s ease-in-out infinite; }

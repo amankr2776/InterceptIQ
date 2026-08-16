@@ -9,6 +9,7 @@ import { INTERCEPTORS, THREATS } from '@/lib/systems';
 import { diagnoseSites } from '@/lib/diagnostics';
 import { SECTORS } from '@/lib/theatre';
 import { Bar } from './ui';
+import { COL } from './symbols';
 
 export default function Inspector({ sc, sol, t, sel, onSel }: {
   sc: Scenario; sol: AllocationSolution | null; t: number; sel: Sel; onSel: (s: Sel) => void;
@@ -81,6 +82,13 @@ export default function Inspector({ sc, sol, t, sel, onSel }: {
           ) : <KV k="State" v="outside track window" />}
         </Grp>
 
+        <Grp title="Aimed At — Protected Asset">
+          <KV k="Target asset" v={th.targetAssetName} c={COL.asset} />
+          <KV k="Strikes at" v={clock(th.impact.t)} c={COL.threat} />
+          <KV k="Time to impact" v={t < th.impact.t ? `${(th.impact.t - t).toFixed(1)} s` : 'elapsed'}
+            c={th.impact.t - t < 30 ? COL.threat : 'var(--amb)'} />
+        </Grp>
+
         <Grp title="Threat Profile">
           <KV k="Classification" v={th.cls} c="var(--red)" />
           <KV k="Threat value" v={`${th.rvValue} / 10`} />
@@ -105,34 +113,44 @@ export default function Inspector({ sc, sol, t, sel, onSel }: {
             c={th.impact.t - t < 30 ? 'var(--red)' : 'var(--amb)'} />
         </Grp>
 
-        <Grp title="Engagement">
+        <Grp title="Defensive Response — interceptors assigned to destroy this threat">
           {res && !res.leaker ? (
             <>
-              <KV k="Cumulative Pk" v={`${(res.cumulativePk * 100).toFixed(1)}%`} c="var(--grn)" />
+              <div style={{ fontSize: 9, color: 'var(--dim2)', lineHeight: 1.5, marginBottom: 4 }}>
+                Probability our interceptors destroy this incoming threat before it reaches{' '}
+                {th.targetAssetName}.
+              </div>
+              <KV k="Cumulative kill probability" v={`${(res.cumulativePk * 100).toFixed(1)}%`} c={COL.burst} />
               <div style={{ margin: '4px 0 7px' }}><Bar v={res.cumulativePk} c="var(--grn)" /></div>
               {res.shots.map((s, i) => {
                 const a = sc.areas.find((x) => x.id === s.areaId)!;
                 return (
                   <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 2, padding: '5px 6px', marginBottom: 4 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }}>
-                      <span style={{ color: 'var(--amb)' }}>#{s.salvoIndex + 1} {a.name}</span>
-                      <span style={{ color: 'var(--txt)' }}>Pk {s.option.pk.toFixed(3)}</span>
+                      <span style={{ color: COL.intcp }}>Round {s.salvoIndex + 1} · {a.name}</span>
+                      <span style={{ color: 'var(--txt)' }}>Pk {(s.option.pk * 100).toFixed(1)}%</span>
                     </div>
                     <div style={{ fontSize: 9, color: 'var(--dim)', marginTop: 3, lineHeight: 1.55 }}>
-                      Launch {clock(s.option.tLaunch)} → intercept {clock(s.option.tIntercept)}<br />
-                      Intercept alt {(s.option.interceptAltM / 1000).toFixed(1)} km · slant {s.option.slantRangeKm.toFixed(1)} km<br />
-                      Aspect {s.option.aspectAngleDeg.toFixed(0)}° · closing {s.option.closingSpeed} m/s<br />
-                      Margin {s.option.timeMarginS.toFixed(1)} s before impact
-                      {s.option.windowOpenS !== undefined && <> · window {s.option.windowOpenS.toFixed(0)}–{s.option.windowCloseS?.toFixed(0)}s</>}
+                      <b style={{ color: COL.intcp }}>{a.name}</b> launches {clock(s.option.tLaunch)} →{' '}
+                      <b style={{ color: COL.burst }}>destroys {th.callsign}</b> {clock(s.option.tIntercept)}<br />
+                      Destroyed at {(s.option.interceptAltM / 1000).toFixed(1)} km altitude
+                      {s.option.standoffFromAssetKm !== undefined && <>, <b style={{ color: COL.burst }}>{s.option.standoffFromAssetKm} km from {th.targetAssetName}</b></>}<br />
+                      Interceptor flies {s.option.slantRangeKm.toFixed(1)} km · aspect {s.option.aspectAngleDeg.toFixed(0)}° · closing {s.option.closingSpeed} m/s<br />
+                      {s.option.timeMarginS.toFixed(1)} s to spare before the threat would have struck
+                      {s.option.windowOpenS !== undefined && <> · firing window {s.option.windowOpenS.toFixed(0)}–{s.option.windowCloseS?.toFixed(0)}s</>}
                     </div>
                   </div>
                 );
               })}
             </>
-          ) : <div style={{ color: 'var(--red)', fontSize: 10.5 }}>LEAKER — no feasible engagement</div>}
+          ) : (
+            <div style={{ color: COL.threat, fontSize: 10.5, lineHeight: 1.5 }}>
+              LEAKER — no battery can reach this threat before it strikes {th.targetAssetName}.
+            </div>
+          )}
         </Grp>
 
-        <Grp title="Per-Site Firing Solutions">
+        <Grp title="Firing Solutions — can each site destroy this threat?">
           {sc.areas.map((a) => {
             const o = table.get(`${a.id}|${th.id}`);
             const ok = o?.feasible;
@@ -229,12 +247,9 @@ export default function Inspector({ sc, sol, t, sel, onSel }: {
   const as = sc.assets.find((x) => x.id === sel.id);
   if (!as) return <Empty>Not found.</Empty>;
   const sect = SECTORS.find((x) => x.id === as.id);
-  const inbound = sc.threats.filter((th) => {
-    const dx = th.impact.p.lon - as.centroid.lon, dy = th.impact.p.lat - as.centroid.lat;
-    return Math.hypot(dx * 104, dy * 110.6) <= as.radiusKm * 1.5;
-  });
+  const inbound = sc.threats.filter((th) => th.targetAssetId === as.id);
   return (
-    <Wrap title={as.name} tag={as.id} col="var(--cy)" sub="DEFENDED SECTOR" onClose={() => onSel(null)}>
+    <Wrap title={as.name} tag={as.id} col={COL.asset} sub="PROTECTED ASSET" onClose={() => onSel(null)}>
       <Grp title="Location">
         <KV k="Centre lat" v={dms(as.centroid.lat, true)} mono />
         <KV k="Centre lon" v={dms(as.centroid.lon, false)} mono />
@@ -244,15 +259,15 @@ export default function Inspector({ sc, sol, t, sel, onSel }: {
         {sect && <KV k="Population" v={sect.pop.toLocaleString()} />}
         {sect && <KV k="Designation" v={sect.kind} />}
       </Grp>
-      <Grp title={`Inbound (${inbound.length})`}>
-        {inbound.length === 0 && <div style={{ fontSize: 10, color: 'var(--dim2)' }}>No tracks aimed at this sector.</div>}
+      <Grp title={`Threats aimed at this asset (${inbound.length})`}>
+        {inbound.length === 0 && <div style={{ fontSize: 10, color: 'var(--dim2)' }}>No tracks aimed at this asset.</div>}
         {inbound.map((th) => {
           const r = sol?.perThreat.find((p) => p.threatId === th.id);
           return (
             <div key={th.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, padding: '2px 0' }}>
               <span style={{ color: 'var(--txt)' }}>{th.callsign} <span style={{ color: 'var(--dim2)' }}>{th.cls}</span></span>
-              <span style={{ color: r?.leaker ? 'var(--red)' : 'var(--grn)' }}>
-                {r?.leaker ? 'LEAKER' : `Pk ${((r?.cumulativePk ?? 0) * 100).toFixed(0)}%`}
+              <span style={{ color: r?.leaker ? COL.threat : COL.burst }}>
+                {r?.leaker ? 'WILL STRIKE' : `${((r?.cumulativePk ?? 0) * 100).toFixed(0)}% stopped`}
               </span>
             </div>
           );

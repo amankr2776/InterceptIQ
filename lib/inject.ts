@@ -17,6 +17,14 @@ export function injectThreat(
   tNow: number,
   systemId?: string
 ): Threat {
+  // Attribute the new track to whichever protected asset it threatens most.
+  const nearest = sc.assets.reduce((best, a) => {
+    const d = Math.hypot(
+      (a.centroid.lat - aimLat) * 110.574,
+      (a.centroid.lon - aimLon) * 111.32 * Math.cos((aimLat * Math.PI) / 180)
+    );
+    return !best || d < best.d ? { a, d } : best;
+  }, null as null | { a: Scenario['assets'][0]; d: number })!;
   const rng = makeRng(Math.floor(Math.random() * 1e9));
   const spec = THREATS.find((x) => x.id === systemId) ?? THREATS[rng.int(0, THREATS.length - 1)];
 
@@ -99,6 +107,8 @@ export function injectThreat(
     impact: { t: last.t, p: last.p, l: last.l },
     apogeeAlt: Math.round(apogee),
     origin: { p: first.p, l: first.l, name: `LP-${String(n).padStart(2, '0')}` },
+    targetAssetId: nearest.a.id,
+    targetAssetName: nearest.a.name,
     bearingDeg: +flyBear.toFixed(1),
     rangeKm: +gnd.toFixed(1),
   };

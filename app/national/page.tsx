@@ -8,6 +8,7 @@ import { SECTORS, THEATRES } from '@/lib/theatre';
 import { INTERCEPTORS } from '@/lib/systems';
 import { dms } from '@/lib/format';
 import { useMission } from '@/lib/store';
+import Nav from '@/components/Nav';
 
 const LAYER_TOGGLES = [
   ['envelopes', 'Engagement envelopes'],
@@ -60,14 +61,16 @@ export default function National() {
     setDead((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   return (
-    <div style={{ display: 'grid', gridTemplateRows: 'auto 1fr', height: '100vh', overflow: 'hidden' }}>
-      {/* ---------- HEADER ---------- */}
+    <div style={{ display: 'grid', gridTemplateRows: 'auto auto 1fr', height: '100vh', overflow: 'hidden' }}>
+      <Nav right={
+        <>
+          <Pill label="NETWORK: LINKED" state="ok" />
+          <Pill label={nat.offline ? `${nat.offline} BTY DOWN` : 'ALL BTY UP'} state={nat.offline ? 'crit' : 'ok'} />
+        </>
+      } />
+
+      {/* ---------- STATS ---------- */}
       <header style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '7px 13px', borderBottom: '1px solid var(--line)', background: 'var(--panel)' }}>
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--amb)', letterSpacing: '.06em' }}>CK115</div>
-          <div style={{ fontSize: 8, color: 'var(--dim2)' }}>NATIONAL AIR DEFENCE</div>
-        </div>
-        <div style={{ width: 1, height: 28, background: 'var(--line)' }} />
         <div style={{ display: 'flex', gap: 15, flexWrap: 'wrap' }}>
           <Stat label="Sectors"><Num value={nat.sectors} /></Stat>
           <Stat label="Batteries" c="var(--amb)"><Num value={nat.active} />/{nat.batteries}</Stat>
@@ -76,11 +79,6 @@ export default function National() {
           <Stat label="Radars" c="var(--vio)"><Num value={nat.radars} /></Stat>
           <Stat label="System types" c="var(--grn)"><Num value={nat.types} /></Stat>
           <Stat label="Population covered" c="var(--cy)"><Num value={nat.pop / 1e6} decimals={1} suffix="M" /></Stat>
-        </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
-          <Pill label="NETWORK: LINKED" state="ok" />
-          <Pill label={nat.offline ? `${nat.offline} BTY DOWN` : 'ALL BTY UP'} state={nat.offline ? 'crit' : 'ok'} />
-          <Link href="/"><button>Live Engagement →</button></Link>
         </div>
       </header>
 

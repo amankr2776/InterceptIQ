@@ -1,6 +1,6 @@
 import { dist3, toGeo } from './geo';
 import type { EngagementOption, LaunchArea, Threat, LocalPoint } from './types';
-import { AOI } from './scenario';
+
 
 /**
  * INTERCEPT SOLVER
@@ -22,6 +22,10 @@ import { AOI } from './scenario';
 export interface SolveCtx {
   tNow: number;
   keepOutAltM?: number; // don't score intercepts below this (debris/self-defence floor)
+  /** AOI origin for converting local ENU back to geodetic. MUST be the origin
+   *  of the scenario being solved — using a stale global constant here silently
+   *  places every intercept point hundreds of km from its true location. */
+  origin: { lat0: number; lon0: number };
 }
 
 export function solveEngagement(
@@ -139,7 +143,7 @@ export function solveEngagement(
     feasible: true,
     tIntercept: +hit.t.toFixed(2),
     timeMarginS: +margin.toFixed(2),
-    interceptPoint: toGeo(hit.p, AOI),
+    interceptPoint: toGeo(hit.p, ctx.origin),
     interceptLocal: hit.p,
     slantRangeKm: +hit.range.toFixed(2),
     interceptAltM: Math.round(hit.p.z * 1000),

@@ -148,12 +148,15 @@ export function generateScenario(opts: GenOpts): Scenario {
   });
 
   // ---------- Defended sectors: REAL cities ----------
+  const maxVal = Math.max(...theatre.sectors.map((sid) => sectorById(sid).value));
   const assets: DefendedAsset[] = theatre.sectors.map((sid) => {
     const s = sectorById(sid);
     return {
       id: s.id, name: s.name,
       centroid: { lat: s.lat, lon: s.lon },
       radiusKm: s.radiusKm, value: s.value,
+      population: s.pop, kind: s.kind,
+      primary: s.value === maxVal,
     };
   });
 
@@ -242,6 +245,8 @@ export function generateScenario(opts: GenOpts): Scenario {
       impact: { t: last.t, p: last.p, l: last.l },
       apogeeAlt: Math.round(apogee),
       origin: { p: first.p, l: first.l, name: `LP-${String(i + 1).padStart(2, '0')}` },
+      targetAssetId: aimAsset.id,
+      targetAssetName: aimAsset.name,
       bearingDeg: +flyBear.toFixed(1),
       rangeKm: +gnd.toFixed(1),
     });

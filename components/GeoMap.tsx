@@ -4,7 +4,7 @@ import type { AllocationSolution, Scenario } from '@/lib/types';
 import { stateAt } from '@/lib/geometry';
 import { region } from '@/lib/theatre';
 import { KM_LAT, kmLon } from '@/lib/scenario';
-import { symbolPath } from './ui';
+import { ShieldIcon, BurstIcon, BatteryIcon, EngagementDefs, symbolPath, COL } from './symbols';
 
 export type Sel =
   | { kind: 'threat'; id: string }
@@ -122,7 +122,8 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
           <rect width="34" height="34" fill="#051220" />
           <path d="M0,17 q8.5,-4.5 17,0 t17,0" fill="none" stroke="#0a2033" strokeWidth=".7" />
         </pattern>
-        <radialGradient id="dome"><stop offset="55%" stopColor="#38bdf8" stopOpacity=".035" /><stop offset="100%" stopColor="#38bdf8" stopOpacity=".16" /></radialGradient>
+        <radialGradient id="dome"><stop offset="55%" stopColor="#ffc247" stopOpacity=".045" /><stop offset="100%" stopColor="#ffc247" stopOpacity=".17" /></radialGradient>
+        <EngagementDefs />
         <filter id="gl"><feGaussianBlur stdDeviation="2.6" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
       </defs>
 
@@ -182,14 +183,24 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
         {sc.assets.map((a) => {
           const on = sel?.kind === 'asset' && sel.id === a.id;
           const cx = PX(a.centroid.lon), cy = PY(a.centroid.lat);
+          const hit = sol?.perThreat.some((r) => r.leaker &&
+            sc.threats.find((x) => x.id === r.threatId)?.targetAssetId === a.id);
           return (
             <g key={a.id} style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); if (!drag.current?.moved) onSel({ kind: 'asset', id: a.id }); }}>
-              <circle cx={cx} cy={cy} r={a.radiusKm * kmToPx} fill="url(#dome)" stroke="#38bdf8"
-                strokeOpacity={on ? .85 : .45} strokeWidth={(on ? 1.8 : 1.2) * iz} strokeDasharray={`${7 * iz} ${5 * iz}`} />
+              <circle cx={cx} cy={cy} r={a.radiusKm * kmToPx} fill="url(#dome)"
+                stroke={hit ? COL.threat : COL.asset}
+                strokeOpacity={on ? .9 : .5} strokeWidth={(on ? 1.9 : 1.3) * iz}
+                strokeDasharray={`${7 * iz} ${5 * iz}`} />
               <g transform={`translate(${cx},${cy}) scale(${iz})`}>
-                <path d="M-9,0 h18 M0,-9 v18" stroke="#38bdf8" strokeWidth="1.2" strokeOpacity=".85" />
-                <circle r="3.4" fill="none" stroke="#38bdf8" strokeWidth="1.3" />
-                <text y={-14} fill="#5ecbf9" fontSize="11.5" textAnchor="middle" letterSpacing=".8">{a.name.toUpperCase()}</text>
+                <ShieldIcon s={a.primary ? 1.15 : 0.95} col={hit ? COL.threat : COL.asset} halo={a.primary} />
+                <text y={-19} fill={hit ? COL.threat : COL.asset} fontSize={a.primary ? 12.5 : 11}
+                  textAnchor="middle" letterSpacing=".8" fontWeight={a.primary ? 700 : 600}
+                  stroke="#040910" strokeWidth="3" paintOrder="stroke">
+                  {a.name.toUpperCase()}
+                </text>
+                {(on || a.primary) && (
+                  <text y={27} fill="var(--dim2)" fontSize="8" textAnchor="middle">PROTECTED ASSET</text>
+                )}
               </g>
             </g>
           );
@@ -217,12 +228,11 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                 fill={on ? (used ? 'rgba(255,176,32,.22)' : 'rgba(67,96,120,.2)') : 'rgba(107,47,61,.28)'}
                 stroke={col} strokeWidth={(hi ? 2.2 : 1.4) * iz} />
               <g transform={`translate(${cx},${cy}) scale(${iz})`}>
-                <rect x="-7" y="-5" width="14" height="10" fill="#040910" stroke={col} strokeWidth="1.5" />
-                <path d="M-7,-5 L0,-11 L7,-5" fill="none" stroke={col} strokeWidth="1.5" />
-                <circle r="1.6" fill={col} />
-                {!on && <path d="M-10,-10 L10,10 M10,-10 L-10,10" stroke="#f43f5e" strokeWidth="2" />}
-                <text y="21" fill={col} fontSize="10.5" textAnchor="middle" fontWeight="600">{a.name}</text>
-                <text y="32" fill={on ? '#4a6076' : '#8a4550'} fontSize="8.5" textAnchor="middle">
+                <BatteryIcon s={1.05} col={col} dead={!on} />
+                <text y="-14" fill={col} fontSize="10" textAnchor="middle" fontWeight="600"
+                  stroke="#040910" strokeWidth="2.6" paintOrder="stroke">{a.name}</text>
+                <text y="20" fill={on ? '#5d7d96' : '#8a4550'} fontSize="8.5" textAnchor="middle"
+                  stroke="#040910" strokeWidth="2.4" paintOrder="stroke">
                   {on ? `${a.inventory} RDY · ${a.maxSlantRange}km` : 'OFFLINE'}
                 </text>
               </g>
@@ -241,58 +251,73 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
           </g>
         ))}
 
-        {/* ---------- TRACKS ---------- */}
+        {/* ---------- INCOMING THREAT TRACKS (red, dashed, toward asset) ---------- */}
         {live.map(({ th, st, active, killed, first }) => {
           const past = th.trajectory.filter((s) => s.t <= t);
           const future = th.trajectory.filter((s) => s.t >= t);
           const isSel = selT === th.id;
-          const col = killed ? '#34d399' : '#f97362';
           const P = (s: typeof past[0]) => `${PX(s.p.lon)},${PY(s.p.lat)}`;
           return (
             <g key={th.id}>
+              {/* flown path — solid-ish red, fades once the threat is dead */}
               {layers.tracks && past.length > 1 && (
-                <polyline points={past.map(P).join(' ')} fill="none" stroke={col}
-                  strokeOpacity={killed ? .28 : .75} strokeWidth={(isSel ? 2.6 : 1.5) * iz} />
+                <polyline points={past.map(P).join(' ')} fill="none" stroke={COL.threat}
+                  strokeOpacity={killed ? .22 : .7} strokeWidth={(isSel ? 2.4 : 1.4) * iz} />
               )}
+              {/* PREDICTED path to the protected asset — dashed + marching + arrowhead.
+                  Direction of travel is unambiguous: it terminates at the asset. */}
               {layers.predict && !killed && future.length > 1 && (
-                <polyline points={future.map(P).join(' ')} fill="none" stroke="#f43f5e"
-                  strokeOpacity={isSel ? .5 : .24} strokeWidth={1.2 * iz} strokeDasharray={`${6 * iz} ${6 * iz}`} />
+                <polyline className="threat-line" points={future.map(P).join(' ')} fill="none"
+                  stroke={COL.threat} strokeOpacity={isSel ? .85 : .5}
+                  strokeWidth={(isSel ? 2 : 1.4) * iz}
+                  strokeDasharray={`${7 * iz} ${5 * iz}`} markerEnd="url(#arrowThreat)" />
               )}
               {layers.altticks && isSel && th.trajectory.filter((_, i) => i % 18 === 0).map((s, i) => (
                 <g key={i}>
-                  <circle cx={PX(s.p.lon)} cy={PY(s.p.lat)} r={1.5 * iz} fill="#ffb020" fillOpacity=".75" />
+                  <circle cx={PX(s.p.lon)} cy={PY(s.p.lat)} r={1.5 * iz} fill={COL.asset} fillOpacity=".75" />
                   <text x={PX(s.p.lon) + 4 * iz} y={PY(s.p.lat) - 3 * iz} fill="#8a7a52" fontSize={7.5 * iz}>
                     {(s.p.alt / 1000).toFixed(0)}
                   </text>
                 </g>
               ))}
+              {/* where it would strike if unengaged */}
               {!killed && layers.predict && (
-                <g opacity=".85" transform={`translate(${PX(th.impact.p.lon)},${PY(th.impact.p.lat)}) scale(${iz})`}>
-                  <circle r="5.5" fill="none" stroke="#f43f5e" strokeWidth="1.3" />
-                  <path d="M-8,0 h16 M0,-8 v16" stroke="#f43f5e" strokeWidth="1" strokeOpacity=".55" />
+                <g opacity=".9" transform={`translate(${PX(th.impact.p.lon)},${PY(th.impact.p.lat)}) scale(${iz})`}>
+                  <circle r="6" fill="none" stroke={COL.threat} strokeWidth="1.4" strokeDasharray="3 2" />
+                  <path d="M-9,0 h18 M0,-9 v18" stroke={COL.threat} strokeWidth="1" strokeOpacity=".6" />
+                  {isSel && <text y="-12" fill={COL.threat} fontSize="8" textAnchor="middle">IMPACT IF UNENGAGED</text>}
                 </g>
               )}
-              {killed && first && (
-                <g filter="url(#gl)" transform={`translate(${PX(first.option.interceptPoint.lon)},${PY(first.option.interceptPoint.lat)}) scale(${iz})`}>
-                  <circle r={8 + 4 * Math.abs(Math.sin(t * 1.6))} fill="none" stroke="#34d399" strokeWidth="1.8" />
-                  <circle r="3" fill="#34d399" />
-                </g>
-              )}
+              {/* live track symbol */}
               {active && st && !killed && (
                 <g style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); if (!drag.current?.moved) onSel({ kind: 'threat', id: th.id }); }}>
-                  {isSel && <circle cx={PX(st.p.lon)} cy={PY(st.p.lat)} r={18 * iz} fill="none" stroke="#ffb020" strokeWidth={iz} strokeDasharray={`${3 * iz} ${3 * iz}`} />}
+                  {isSel && <circle cx={PX(st.p.lon)} cy={PY(st.p.lat)} r={18 * iz} fill="none" stroke={COL.asset} strokeWidth={iz} strokeDasharray={`${3 * iz} ${3 * iz}`} />}
                   <g transform={`translate(${PX(st.p.lon)},${PY(st.p.lat)}) scale(${iz})`}>
-                    <path d={symbolPath(th.cls)} fill="#f43f5e" fillOpacity=".9" stroke="#ffd7dc" strokeWidth="1.3" strokeLinejoin="round" />
+                    <path d={symbolPath(th.cls)} fill={COL.threat} fillOpacity=".9" stroke="#ffd7dc" strokeWidth="1.3" strokeLinejoin="round" />
                     <text x="13" y="-5" fill="#ffb3ba" fontSize="10.5">{th.callsign}</text>
-                    <text x="13" y="6" fill="#8a6268" fontSize="8.5">{th.cls} · {(st.p.alt / 1000).toFixed(0)}km · M{(st.speed / 340).toFixed(1)}</text>
+                    <text x="13" y="6" fill="#8a6268" fontSize="8.5">
+                      {th.cls} · {(st.p.alt / 1000).toFixed(0)}km · →{th.targetAssetName}
+                    </text>
                   </g>
+                </g>
+              )}
+              {/* INTERCEPT BURST — threat destroyed in the air, at its own coordinates */}
+              {killed && first && (
+                <g filter="url(#glowSoft)"
+                  transform={`translate(${PX(first.option.interceptPoint.lon)},${PY(first.option.interceptPoint.lat)}) scale(${iz})`}>
+                  <BurstIcon s={1.1} />
+                  {isSel && (
+                    <text y="-17" fill={COL.burst} fontSize="8.5" textAnchor="middle">
+                      DESTROYED {first.option.standoffFromAssetKm ?? '—'} km FROM ASSET
+                    </text>
+                  )}
                 </g>
               )}
             </g>
           );
         })}
 
-        {/* ---------- ENGAGEMENTS ---------- */}
+        {/* ---------- OUTGOING INTERCEPTOR RESPONSE (blue, solid, from battery) ---------- */}
         {layers.engage && sol?.shots.map((s, i) => {
           const a = sc.areas.find((x) => x.id === s.areaId)!;
           const o = s.option;
@@ -303,15 +328,23 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
           const done = t >= o.tIntercept;
           return (
             <g key={i}>
-              <line x1={x0} y1={y0} x2={x1} y2={y1} stroke="#ffb020"
-                strokeOpacity={done ? .1 : .3} strokeWidth={.9 * iz} strokeDasharray={`${3 * iz} ${5 * iz}`} />
+              {/* planned fly-out corridor */}
+              <line x1={x0} y1={y0} x2={x1} y2={y1} stroke={COL.intcp}
+                strokeOpacity={done ? .12 : .28} strokeWidth={.9 * iz}
+                strokeDasharray={`${3 * iz} ${5 * iz}`} />
+              {/* interceptor in flight: solid blue, arrowhead leading, moving OUTWARD */}
               {!done && (
                 <>
-                  <line x1={x0} y1={y0} x2={x0 + (x1 - x0) * f} y2={y0 + (y1 - y0) * f} stroke="#ffb020" strokeWidth={2 * iz} strokeOpacity=".95" />
-                  <circle cx={x0 + (x1 - x0) * f} cy={y0 + (y1 - y0) * f} r={3.2 * iz} fill="#fff3d6" />
+                  <line className="intcp-line" x1={x0} y1={y0}
+                    x2={x0 + (x1 - x0) * f} y2={y0 + (y1 - y0) * f}
+                    stroke={COL.intcp} strokeWidth={2.2 * iz} strokeOpacity=".97"
+                    strokeDasharray={`${10 * iz} ${5 * iz}`} markerEnd="url(#arrowIntcp)" />
+                  <circle cx={x0 + (x1 - x0) * f} cy={y0 + (y1 - y0) * f} r={3.2 * iz} fill="#dbeeff" />
                 </>
               )}
-              <circle cx={x1} cy={y1} r={2.6 * iz} fill="none" stroke="#ffb020" strokeWidth={1.2 * iz} strokeOpacity=".6" />
+              {/* aim point */}
+              <circle cx={x1} cy={y1} r={2.6 * iz} fill="none" stroke={COL.intcp}
+                strokeWidth={1.2 * iz} strokeOpacity=".55" />
             </g>
           );
         })}

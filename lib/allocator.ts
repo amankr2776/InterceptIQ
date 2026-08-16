@@ -26,7 +26,18 @@ export function buildOptions(sc: Scenario, tNow: number, subset?: Set<string>) {
   const opts = new Map<string, EngagementOption>();
   for (const a of areas) {
     for (const t of sc.threats) {
-      opts.set(`${a.id}|${t.id}`, solveEngagement(a, t, { tNow, keepOutAltM: 250 }));
+      const o = solveEngagement(a, t, { tNow, keepOutAltM: 250, origin: sc.aoi });
+      if (o.feasible) {
+        // How far from the PROTECTED ASSET is this threat destroyed?
+        const asset = sc.assets.find((x) => x.id === t.targetAssetId) ?? sc.assets[0];
+        if (asset) {
+          const dLat = (o.interceptPoint.lat - asset.centroid.lat) * 110.574;
+          const dLon = (o.interceptPoint.lon - asset.centroid.lon) *
+            111.32 * Math.cos((asset.centroid.lat * Math.PI) / 180);
+          o.standoffFromAssetKm = +Math.hypot(dLat, dLon).toFixed(1);
+        }
+      }
+      opts.set(`${a.id}|${t.id}`, o);
     }
   }
   return { areas, opts };

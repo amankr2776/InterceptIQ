@@ -45,6 +45,9 @@ export interface Threat {
   apogeeAlt: number;     // m
   /** Where the attacker fired from (may lie outside the AOI). */
   origin: { p: GeoPoint; l: LocalPoint; name: string };
+  /** id of the DefendedAsset this track is aimed at. */
+  targetAssetId: string;
+  targetAssetName: string;
   bearingDeg: number;    // ground-track heading
   rangeKm: number;       // origin -> impact great-circle-ish ground range
 }
@@ -69,12 +72,23 @@ export interface LaunchArea {
   active: boolean;              // judge can "destroy" a site => false
 }
 
+/**
+ * PROTECTED ASSET — the thing actually being defended.
+ * Every threat in a scenario is aimed at one of these, and every interceptor
+ * exists to stop it reaching one. Rendered with a shield icon at all times.
+ */
 export interface DefendedAsset {
   id: string;
   name: string;
   centroid: { lat: number; lon: number };
   radiusKm: number;
   value: number;
+  /** Real population inside the defended footprint. */
+  population: number;
+  /** e.g. "National capital region" */
+  kind: string;
+  /** true = the highest-value asset in this scenario (primary shield). */
+  primary: boolean;
 }
 
 export interface Scenario {
@@ -106,6 +120,10 @@ export interface EngagementOption {
   closingSpeed: number;   // m/s
   windowOpenS?: number;   // engagement window opens (s)
   windowCloseS?: number;  // engagement window closes (s)
+  /** Distance from the intercept point to the protected asset, km.
+   *  This is the number that matters operationally: how far out was the
+   *  threat destroyed relative to the thing being defended. */
+  standoffFromAssetKm?: number;
   pk: number;             // single-shot kill probability 0..1
 }
 
