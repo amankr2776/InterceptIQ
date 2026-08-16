@@ -15,6 +15,10 @@ export interface SiteRequest {
   standoffKm: number;
   /** Minimum separation from every already-placed battery, km. */
   minSepKm: number;
+  /** Hard ceiling on distance from the anchor, km. A battery sited beyond
+   *  its own reach cannot defend the asset it is assigned to, so the
+   *  fallback paths must respect this even when soil/dispersion are tight. */
+  maxStandoffKm?: number;
   /** Already-placed battery positions to disperse away from. */
   placed: SitePoint[];
   rnd: () => number;
@@ -43,6 +47,7 @@ export interface SiteRequest {
  */
 export function findSite(req: SiteRequest): SitePoint {
   const { anchor, arc, standoffKm, minSepKm, placed, rnd } = req;
+  const maxKm = req.maxStandoffKm ?? Infinity;
   const lo = arc[0];
   const hi = arc[1] < arc[0] ? arc[1] + 360 : arc[1];
 
@@ -77,7 +82,7 @@ export function findSite(req: SiteRequest): SitePoint {
   for (let b = lo; b <= hi; b += 7) {
     for (const f of [1.0, 0.82, 1.18, 0.66, 1.34, 0.5]) {
       const km = standoffKm * f;
-      if (km < 6) continue;
+      if (km < 6 || km > maxKm) continue;
       const p = project(((b + jitter) % 360 + 360) % 360, km);
       if (!inIndia(p.lat, p.lon)) continue;          // hard: must be on national soil
 
@@ -98,7 +103,9 @@ export function findSite(req: SiteRequest): SitePoint {
   /* Fallback 1 — widen to the full circle, keep the soil constraint. */
   for (let b = 0; b < 360; b += 5) {
     for (const f of [1.0, 0.75, 1.25, 0.5, 1.5]) {
-      const p = project(b, standoffKm * f);
+      const km = standoffKm * f;
+      if (km > maxKm) continue;
+      const p = project(b, km);
       if (!inIndia(p.lat, p.lon)) continue;
       const sep = sepFrom(p);
       const score = Math.min(sep, minSepKm * 2) / (minSepKm * 2);
@@ -110,6 +117,7 @@ export function findSite(req: SiteRequest): SitePoint {
   /* Fallback 2 — anywhere on soil close in. */
   for (let b = 0; b < 360; b += 11) {
     for (const km of [14, 22, 30, 40]) {
+      if (km > maxKm) continue;
       const p = project(b, km);
       if (inIndia(p.lat, p.lon)) return p;
     }

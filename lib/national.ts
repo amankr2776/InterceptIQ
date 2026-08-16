@@ -1,8 +1,9 @@
 // InterceptIQ
 import { makeRng } from './rng';
 import { INTERCEPTORS, type InterceptorSpec } from './systems';
-import { SECTORS, THEATRES } from './theatre';
-import { findSite } from './siting';
+import { SECTORS, THEATRES, region } from './theatre';
+import { findSite, type SitePoint } from './siting';
+import { inIndia } from './border';
 
 
 /**
@@ -246,7 +247,160 @@ export function buildNationalLaydown(seed = 20260816): NationalLaydown {
     });
   }
 
+  /* ---------------------------------------------------------------- *
+   * FRONTIER FIRE-UNIT GAP FILL
+   * ----------------------------------------------------------------
+   * Sector batteries defend cities, so like the radars they leave real
+   * frontier uncovered. Measured on the sector-only laydown, 15.7% of the
+   * borderline sat outside EVERY interceptor envelope — the Nicobars, the
+   * Andaman chain, the Kerala/Karnataka coast, the Mizoram salient and long
+   * Himalayan stretches. A leaker crossing there meets nothing.
+   *
+   * This plants MR-SAM fire units (100 km, 50 m floor — the right compromise
+   * for coastal and mountain approaches, and the system India is fielding
+   * most widely) wherever the frontier is unengageable, re-testing as it
+   * goes so it only adds what is genuinely needed.
+   * ---------------------------------------------------------------- */
+  const gapSpec = INTERCEPTORS.find((x) => x.id === 'MRSAM')!;
+  const engaged = (p: SitePoint) =>
+    batteries.some((b) => b.active && haversineKm(p, b) <= b.spec.rangeKm[1]);
+
+  let gapN = 0;
+  for (const p of borderSamples(70)) {
+    if (engaged(p)) continue;
+    // sit back from the line so the envelope straddles the frontier
+    const site = pullInland(p, gapSpec.rangeKm[1] * 0.35) ??
+      (inIndia(p.lat, p.lon) ? p : null);
+    if (!site) continue;
+    gapN++;
+    const sid = nearestSectorId(site);
+    const sec = SECTORS.find((s) => s.id === sid)!;
+    batteries.push({
+      id: `FRN-B${gapN}`,
+      unit: `Frontier ${gapN}`,
+      systemId: gapSpec.id,
+      spec: gapSpec,
+      sectorId: sid,
+      sectorName: sec.name,
+      lat: +site.lat.toFixed(5),
+      lon: +site.lon.toFixed(5),
+      bearingFromSector: 0,
+      standoffKm: +haversineKm(site, { lat: sec.lat, lon: sec.lon }).toFixed(1),
+      rounds: gapSpec.readyRounds,
+      active: true,
+      layer: layerOf(gapSpec.role),
+      front: frontOf(sid),
+    });
+  }
+
+  /* ---------------------------------------------------------------- *
+   * FRONTIER EARLY-WARNING CHAIN
+   * ----------------------------------------------------------------
+   * Sector radars are sited to defend cities, so coverage follows the
+   * population map — which leaves real frontier with nothing looking at it.
+   * Measured on the sector-only laydown: 3.1% of the national borderline was
+   * outside every radar horizon, the worst gap being Great Nicobar at 305 km
+   * beyond the nearest set. An air-defence network with a 305 km hole is not
+   * a network.
+   *
+   * This pass walks the actual border ring and plants an EW radar wherever a
+   * sample point is uncovered, then re-tests, until the whole frontier is
+   * inside somebody's horizon. Sites are pulled slightly inland and are
+   * required to be on national soil like any other unit.
+   *
+   * These are surveillance sets, not fire units — they generate the track
+   * picture that cues the batteries, which is exactly how the real IACCS /
+   * Akashteer grid is described in open sources.
+   * ---------------------------------------------------------------- */
+  const EW_RANGE = 450;              // Swordfish/LRTR-class early warning
+  const border = borderSamples(60);  // ~60 km spacing around the whole ring
+  const covered = (p: SitePoint) =>
+    radars.some((r) => haversineKm(p, r) <= r.detectKm);
+
+  let ewN = 0;
+  for (const p of border) {
+    if (covered(p)) continue;
+    /* Pull the site inland from the frontier so it is defensible and on
+     * soil — a radar sitting exactly on the border line is neither. */
+    const site = pullInland(p, 45) ?? (inIndia(p.lat, p.lon) ? p : null);
+    if (!site) continue;
+    ewN++;
+    radars.push({
+      id: `EW-${String(ewN).padStart(2, '0')}`,
+      name: `Frontier EW ${ewN}`,
+      type: 'Long-range early-warning array',
+      sectorId: nearestSectorId(site),
+      lat: +site.lat.toFixed(5),
+      lon: +site.lon.toFixed(5),
+      detectKm: EW_RANGE,
+      band: 'S/L-band phased array',
+      role: 'Frontier early warning — feeds the national track picture',
+    });
+  }
+
   return { batteries, radars };
+}
+
+const D2R = Math.PI / 180;
+function haversineKm(a: SitePoint, b: { lat: number; lon: number }) {
+  return Math.hypot(
+    (b.lat - a.lat) * 110.574,
+    (b.lon - a.lon) * 111.32 * Math.cos(a.lat * D2R)
+  );
+}
+
+/** Nearest defended sector, used to file an EW set under a command. */
+function nearestSectorId(p: SitePoint): string {
+  let best = SECTORS[0], bd = Infinity;
+  for (const s of SECTORS) {
+    const d = haversineKm(p, { lat: s.lat, lon: s.lon });
+    if (d < bd) { bd = d; best = s; }
+  }
+  return best.id;
+}
+
+/**
+ * Walk the Indian border ring and return sample points at roughly `stepKm`
+ * spacing. This is the same geometry the territory tests use, so coverage is
+ * measured against the real frontier rather than a bounding box.
+ */
+function borderSamples(stepKm: number): SitePoint[] {
+  const ind = region.countries.find((c) => c.iso === 'IND');
+  if (!ind) return [];
+  const out: SitePoint[] = [];
+  for (const ring of ind.rings) {
+    for (let i = 1; i < ring.length; i++) {
+      const [x0, y0] = ring[i - 1], [x1, y1] = ring[i];
+      const seg = Math.hypot(
+        (x1 - x0) * 111.32 * Math.cos(y0 * D2R), (y1 - y0) * 110.574
+      );
+      const n = Math.max(1, Math.ceil(seg / stepKm));
+      for (let k = 0; k < n; k++) {
+        const f = k / n;
+        out.push({ lat: y0 + (y1 - y0) * f, lon: x0 + (x1 - x0) * f });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Step inward from a frontier point until the position is comfortably on
+ * national soil. Tries progressively shorter offsets and every bearing, so
+ * narrow salients and small islands still yield a site.
+ */
+function pullInland(p: SitePoint, km: number): SitePoint | null {
+  for (const d of [km, km * 0.6, km * 0.3, km * 0.12, 0]) {
+    for (let b = 0; b < 360; b += 15) {
+      const th = b * D2R;
+      const q = {
+        lat: p.lat + (d * Math.cos(th)) / 110.574,
+        lon: p.lon + (d * Math.sin(th)) / (111.32 * Math.cos(p.lat * D2R)),
+      };
+      if (inIndia(q.lat, q.lon)) return q;
+    }
+  }
+  return null;
 }
 
 /** Aggregate a laydown by frontier, for the national dashboard. */

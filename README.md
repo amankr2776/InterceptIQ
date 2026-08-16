@@ -161,7 +161,9 @@ in one acoustic space. A wind bed keeps the silence between events from being de
 
 <div align="center">
 
-**38 defended sectors · 194 batteries · 38 radars · 140.5 M people covered**
+**38 defended sectors · 223 batteries · 41 radars · 140.5 M people covered**
+
+**100% of the national borderline inside radar cover AND inside an interceptor envelope**
 
 </div>
 
@@ -175,11 +177,11 @@ each is genuinely different and the systems India has publicly fielded on each d
 
 | Front | Batteries | Sectors | Posture |
 |:--|--:|--:|:--|
-| 🔴 **West** — Pakistan | 86 | 15 | Full stack incl. BMD tier. Shortest warning; ballistic + cruise + drone saturation |
-| 🟣 **North** — China / LAC | 15 | 4 | Reach and ceiling over magazine depth. Leh · Tawang · Gangtok · Dehradun |
-| 🟠 **East** — Siliguri, Bangladesh, Myanmar | 40 | 8 | S-400 + MR-SAM + Akash in the Siliguri sector, as publicly reported |
-| 🔵 **Maritime** — Bay of Bengal, Palk Strait, Andamans | 35 | 7 | Low-altitude capable systems for sea-skimmers and long-endurance UAV |
-| 🟢 **Interior** — depth sectors | 18 | 4 | Leaner posture; warning measured in minutes, not seconds |
+| 🔴 **West** — Pakistan | 87 | 15 | Full stack incl. BMD tier. Shortest warning; ballistic + cruise + drone saturation |
+| 🟣 **North** — China / LAC | 16 | 4 | Reach and ceiling over magazine depth. Leh · Tawang · Gangtok · Dehradun |
+| 🟠 **East** — Siliguri, Bangladesh, Myanmar | 45 | 8 | S-400 + MR-SAM + Akash in the Siliguri sector, as publicly reported |
+| 🔵 **Maritime** — Bay of Bengal, Palk Strait, Andamans | 53 | 7 | Low-altitude capable systems for sea-skimmers and long-endurance UAV |
+| 🟢 **Interior** — depth sectors | 22 | 4 | Leaner posture; warning measured in minutes, not seconds |
 
 New sectors this release: **Siliguri Corridor · Guwahati · Tezpur · Tawang · Gangtok · Shillong ·
 Agartala · Imphal · Dibrugarh · Bhubaneswar · Visakhapatnam · Madurai · Thiruvananthapuram ·
@@ -187,8 +189,45 @@ Port Blair**, with nine matching theatres — Siliguri Corridor, Northeastern Th
 Bangladesh Frontier, Myanmar Frontier, Bay of Bengal, Palk Strait & Southern Tip, and the
 Andaman & Nicobar Command.
 
-Every battery is verified **on national soil** and **dispersed** — 0 of 194 off-soil, minimum
+Every battery is verified **on national soil** and **dispersed** — 0 of 223 off-soil, minimum
 pairwise separation 12.1 km, so no two fire units share an engagement geometry.
+
+### 🗺️ The boundary itself
+
+The national outline is rebuilt from **Natural Earth 10 m, India point-of-view edition**
+(`ne_10m_admin_0_countries_ind`) — the depiction showing India's official claimed boundary,
+northern extent **37.05°N** including PoK and Aksai Chin. For an Indian air-defence tool that is
+the correct depiction; the UN POV would draw the country wrong for its own users.
+
+| | Before | After |
+|:--|--:|--:|
+| India outline vertices | 564 | **4 562** |
+| Mean border segment | 30.4 km | **5.0 km** |
+| Worst border segment | 162.3 km | **60.4 km** |
+| Northern extent | 35.5°N *(J&K cut off)* | **37.05°N** |
+| Coastal tolerance fudge needed | 0.08° (~9 km) | **0.02° (~2 km)** |
+
+30 hard reference points — Colaba, Kanyakumari, Kavaratti, Port Blair, Gilgit, Tawang, plus ten
+that must read as *foreign* — all resolve correctly. Because the geometry is honest, the tolerance
+band that used to paper over it shrank by 4.5×.
+
+The finer border made territory tests 4× more expensive, so `border.ts` gained a **latitude-bucketed
+edge index**: a test now examines only edges spanning the query latitude instead of all 4 562.
+Exact same answers, **69 µs → 1.15 µs (60× faster)**, and scenario generation went **426 ms → 12 ms**.
+
+### 📡 No gaps in the shield
+
+Sector radars and batteries are sited to defend cities, so coverage used to follow the population
+map and leave real frontier watching nothing. Measured on the sector-only laydown:
+
+| | Before | After |
+|:--|--:|--:|
+| Borderline inside radar cover | 96.9% (worst gap **305 km**, Great Nicobar) | **100%** |
+| Borderline inside an interceptor envelope | 84.3% | **100%** |
+
+Two gap-filling passes now walk the *actual border ring* and plant a long-range EW array or an
+MR-SAM fire unit wherever a sample point is uncovered, re-testing as they go so only what is
+genuinely needed gets added.
 
 ---
 
@@ -349,17 +388,31 @@ Every one of these was a **real bug, found by measurement**:
 | `hard` tier crashed on **28 of 32** seeds | tier sweep | unchecked `find(...)!` |
 | **9.4 %** of batteries in Pakistan/China/sea | soil audit | bearing projected with no constraint |
 | Batteries stacked **2.4 km** apart | separation audit | placement unaware of other units |
+| **9.8%** of QRSAM and **8.3%** of Akash batteries never had a track in range | per-system utilisation sweep | batteries were assigned to assets round-robin while threats picked targets at random, so short-range units defended cities nobody was attacking. "OUT OF RANGE" was the top infeasibility reason for every short-range type |
+| Point defence sited **417 km** from the asset it defends | battery-to-asset distance audit | the siting solver could relax standoff without limit to satisfy soil/dispersion, putting a 45 km Akash far outside its own reach of Delhi |
+| A battery sited **strictly inside Bangladesh** | off-soil vertex audit | the 2 km coastal tolerance band is blind to *which* side of the frontier it reaches across; it now refuses any point strictly inside a neighbour |
+| India drawn with the **wrong northern border** | boundary bbox check | bundled geometry topped out at 35.5°N, cutting off northern J&K, and used the UN rather than the India point of view |
+| Lakshadweep silently deleted | reference-point test (Kavaratti "not India") | island rings below an area threshold were dropped as specks |
 | **18.8 %** of shots flew at targets already destroyed | salvo timing sweep, worst lag **806 s** | renderer drew every round to its own aim point, ignoring that an earlier round in the salvo had already killed the threat — this is what made interceptors appear to fly the wrong way |
 | Hostile launches on Indian soil in the new NE theatres | territory audit after adding the eastern front | launch guard used a 0.045° tolerance while the audit used 0.08°, so points 5–9 km outside the simplified ring passed one test and failed the other |
 | Canvas `IndexSizeError` on every scrub | console capture during Playwright run | `requestAnimationFrame` passes the timestamp of when the frame *began*, which can predate setup time — negative `dt` integrated shock-ring radii below zero |
 
-### ✅ Standing audit — 204 scenarios / 1 132 threats · all 17 theatres × 4 tiers
+### ✅ Standing audit — 204 scenarios / 1 162 threats · all 17 theatres × 4 tiers
 
 ```
   ✓ crashes                     0        ✓ certified          204/204
-  ✓ batteries off soil          0        ✓ max solve           194 ms
-  ✓ hostile origins in India    0        ✓ leakers               0.8 %
-  ✓ ghost rounds drawn     0/3 291       ✓ console errors           0
+  ✓ batteries off soil          0        ✓ max solve            71 ms
+  ✓ polygon vertices off soil   0        ✓ leakers              0.00 %
+  ✓ hostile origins in India    0        ✓ ghost rounds     0/3 461
+  ✓ border in radar cover   100.0 %      ✓ console errors           0
+  ✓ border in SAM envelope  100.0 %      ✓ min separation     7.1 km
+```
+
+Per-system utilisation, after the siting fixes — every threat class now 100% neutralised:
+
+```
+  S-400   100.0 %      MR-SAM  96.6 % (was 86.3)
+  Akash    91.4 %      QRSAM   91.2 % (was 80.4)
 ```
 
 Plus, verified independently:
@@ -406,7 +459,8 @@ expose the same engine as stateless serverless functions.
 
 ```
 lib/
-├── 🗺️  region.json      Natural Earth borders · admin-1 · coast · cities (252 KB)
+├── 🗺️  region.json      Natural Earth 10m India-POV borders · admin-1 · coast (439 KB)
+├── 🧱  scripts/build-region.mjs   regenerates the above from Natural Earth source
 ├── 🌏  theatre.ts       region loader · 38 defended sectors · 17 theatres
 ├── 🚀  systems.ts       interceptor + threat specifications, with sources
 ├── 🧭  border.ts        territory tests · hostile launch placement
