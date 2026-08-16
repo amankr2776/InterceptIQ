@@ -29,9 +29,15 @@ export type ThreatClass =
   | 'SRBM'      // short-range ballistic missile
   | 'MRBM'      // medium-range ballistic missile
   | 'TBM'       // tactical ballistic missile
+  | 'HGV'       // hypersonic glide vehicle — depressed, manoeuvring, non-ballistic
   | 'CRUISE'    // terrain-hugging land-attack cruise missile
+  | 'SUPCRUISE' // supersonic / high-speed stand-off cruise missile
   | 'DRONE'     // fixed-wing UAV / loitering munition
-  | 'AIRCRAFT'; // manned combat aircraft on a strike profile
+  | 'SWARM'     // co-ordinated small-UAV swarm
+  | 'HELO'      // attack / assault helicopter, nap-of-the-earth
+  | 'AIRCRAFT'  // manned combat aircraft on a strike profile
+  | 'STEALTH'   // low-observable fighter
+  | 'BOMBER';   // heavy bomber / stand-off missile carrier
 
 /** PS input (a): "Set of Ballistic Missile Trajectories of targets,
  *  each represented by a point (Latitude, Longitude, Altitude)". */

@@ -33,12 +33,22 @@ const LAYDOWN: Record<string, string[]> = {
  * low and fast and are a point-defence problem rather than an area-defence
  * one — they exercise a different layer of the network than ballistic tracks. */
 const THREAT_MIX: Record<string, string[]> = {
-  easy:   ['ABDALI', 'GHAZNAVI', 'LOITER'],
-  medium: ['ABDALI', 'GHAZNAVI', 'BABUR', 'GHAURI', 'SHAHPAR', 'JF17'],
+  easy:   ['ABDALI', 'GHAZNAVI', 'LOITER', 'NASR', 'SHAHPAR'],
+  medium: ['ABDALI', 'GHAZNAVI', 'BABUR', 'GHAURI', 'SHAHPAR', 'JF17',
+           'NASR', 'RAAD', 'MIRAGE', 'WINGLOONG', 'AH1Z', 'SWARM', 'DF15'],
+  /* HARD is the full-spectrum raid: every capability class the PAF/PLAAF and
+   * the two rocket forces field at once — hypersonics, MIRV, supersonic
+   * stand-off, stealth, bombers, helicopters and swarms. If the network holds
+   * against this, it holds. */
   hard:   ['ABDALI', 'GHAZNAVI', 'BABUR', 'GHAURI', 'SHAHEEN2', 'SHAHPAR',
-           'LOITER', 'JF17', 'F16', 'J10', 'SU30'],
+           'LOITER', 'JF17', 'F16', 'J10', 'SU30',
+           'DF17', 'FATAH2', 'ABABEEL', 'DF21', 'DF26', 'DF15', 'NASR',
+           'RAAD', 'CM400', 'CJ10', 'YJ12',
+           'J20', 'J35', 'H6K', 'MIRAGE',
+           'AH1Z', 'Z10', 'AKINCI', 'WINGLOONG', 'GJ11', 'SWARM'],
   random: ['ABDALI', 'GHAZNAVI', 'BABUR', 'GHAURI', 'SHAHEEN2', 'SHAHPAR',
-           'LOITER', 'JF17', 'J10'],
+           'LOITER', 'JF17', 'J10', 'DF17', 'FATAH2', 'CM400', 'J20',
+           'AH1Z', 'AKINCI', 'SWARM', 'GJ11', 'DF15'],
 };
 
 const TIER: Record<string, { threats: [number, number]; areas: [number, number] }> = {
@@ -88,7 +98,73 @@ function propagate(
     });
   };
 
-  if (spec.cls === 'CRUISE' || spec.cls === 'DRONE' || spec.cls === 'AIRCRAFT') {
+  /* HYPERSONIC GLIDE VEHICLE.
+   * A boost-glide weapon is NOT ballistic and must not be propagated as one.
+   * The booster lofts it, the glide body separates and then flies a shallow,
+   * depressed, near-constant-altitude path in the upper atmosphere at Mach
+   * 5-10, pulling lateral manoeuvres, before a terminal dive.
+   *
+   * This matters to the solver rather than just the picture: the glide phase
+   * sits BELOW the exo-atmospheric BMD layer (PAD engages above 50 km) and
+   * ABOVE most medium SAMs, and the manoeuvring means the intercept point
+   * cannot be extrapolated far ahead. That is exactly why the class exists. */
+  if (spec.cls === 'HGV') {
+    const glideAlt = rng.range(spec.apogeeKm[0], spec.apogeeKm[1]) * 1000;
+    const v = spec.terminalSpeedMs;
+    /* Model the terminal glide leg, capped so the display stays watchable.
+     * The truncated START must still lie outside Indian territory — the
+     * validated launch point is at full range, so simply cutting the leg can
+     * place the first sample over the country being attacked. Observed with
+     * Fatah-II tracks starting inside PoK, which the India-POV boundary
+     * counts as Indian soil. Extend the leg until it clears the frontier. */
+    let ingressKm = Math.min(rangeKm, 700);
+    {
+      const bt = (bearingFrom * Math.PI) / 180;
+      for (let k = 0; k < 60; k++) {
+        const sLat = aim.lat + (ingressKm * Math.cos(bt)) / KM_LAT;
+        const sLon = aim.lon + (ingressKm * Math.sin(bt)) / kmLon(aim.lat);
+        if (!inIndia(sLat, sLon) || ingressKm >= rangeKm) break;
+        ingressKm = Math.min(rangeKm, ingressKm + 25);
+      }
+    }
+    const dur = Math.min((ingressKm * 1000) / v, 900);
+    const ing = ingressKm / rangeKm;
+    const sLat = aim.lat + (oLat - aim.lat) * ing;
+    const sLon = aim.lon + (oLon - aim.lon) * ing;
+    const steps = Math.ceil(dur);
+    /* Lateral weave: a real HGV cross-ranges to defeat prediction. Amplitude
+     * is a fraction of the leg, deterministic per track via the seeded rng.
+     *
+     * The weave is faded IN over the first fifth of the leg. The launch point
+     * is validated as outside India on the straight line; displacing the very
+     * first sample sideways can push it back across the frontier, which is
+     * how Fatah-II tracks ended up originating inside PoK. Starting the
+     * weave at zero keeps the validated entry geometry intact. */
+    const weaveKm = rng.range(18, 45);
+    const weavePhase = rng.range(0, Math.PI * 2);
+    // unit vector perpendicular to the ground track
+    const dLat = aim.lat - sLat, dLon = aim.lon - sLon;
+    const nrm = Math.hypot(dLat, dLon) || 1;
+    const pLat = -dLon / nrm, pLon = dLat / nrm;
+    for (let i = 0; i <= steps; i++) {
+      const f = i / steps;
+      // fade in over the first 20% of the leg, fade out toward the aimpoint
+      const ramp = Math.min(1, f / 0.2) * (1 - f);
+      const w = Math.sin(weavePhase + f * Math.PI * 2.2) * weaveKm * ramp;
+      const lat = sLat + dLat * f + (pLat * w) / KM_LAT;
+      const lon = sLon + dLon * f + (pLon * w) / kmLon(aim.lat);
+      // shallow glide, then a steep terminal dive in the last ~15 s
+      const tToGo = dur - i;
+      const alt = tToGo < 15 ? glideAlt * (tToGo / 15) : glideAlt * (1 - 0.25 * f);
+      apogee = Math.max(apogee, alt);
+      mk(t0 + i, lat, lon, alt, v);
+    }
+    return { samples, apogee, origin: { lat: oLat, lon: oLon } };
+  }
+
+  if (spec.cls === 'CRUISE' || spec.cls === 'DRONE' || spec.cls === 'AIRCRAFT' ||
+      spec.cls === 'SUPCRUISE' || spec.cls === 'SWARM' || spec.cls === 'HELO' ||
+      spec.cls === 'STEALTH' || spec.cls === 'BOMBER') {
     const cruiseAlt = rng.range(spec.apogeeKm[0], spec.apogeeKm[1]) * 1000;
     const v = spec.terminalSpeedMs;
     /* Time compression for long standoff ingress. The geometry (where it was
@@ -396,11 +472,27 @@ export function generateScenario(opts: GenOpts): Scenario {
      * the frontier to be a credible standoff shot. findHostileLaunch ray-casts
      * against the real national border, so tracks always cross the boundary
      * inbound instead of appearing over the country they are attacking. */
+    /* Standoff band for this shot.
+     *
+     * The old expression was `max(rangeMin*0.45, 120) .. min(rangeMax, 900)`,
+     * which INVERTS for systems at either extreme: a DF-26 (3000-4000 km)
+     * produced a band of 1350..900 and a Nasr (60-70 km) produced 120..70.
+     * With min > max no bearing can ever satisfy it, so those systems were
+     * silently dropped from every scenario — three of the roster never
+     * appeared at all.
+     *
+     * Clamp to the theatre-sized window first, then order the pair, so a
+     * shooter is always given a usable band inside its own envelope. */
+    const capKm = 900;
+    const loWant = Math.min(Math.max(spec.rangeKm[0] * 0.45, 40), capKm);
+    const hiWant = Math.min(spec.rangeKm[1], capKm);
+    const bandLo = Math.min(loWant, hiWant);
+    const bandHi = Math.max(loWant, hiWant);
     const launch = findHostileLaunch(
       aim.lat, aim.lon,
       theatre.threatArc,
-      Math.max(spec.rangeKm[0] * 0.45, 120),
-      Math.min(spec.rangeKm[1], 900),
+      bandLo,
+      bandHi,
       rng.next,
     );
     if (!launch) continue;   // no viable hostile geometry for this aimpoint

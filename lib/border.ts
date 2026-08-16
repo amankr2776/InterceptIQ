@@ -226,7 +226,12 @@ export function exitDistanceKm(
      * gap between the two tests and the territory audit flags them as
      * hostile fire originating on Indian soil. Observed on the intricate
      * Mizoram-Myanmar border. */
-    const out = !inCountryTolerant(p.lat, p.lon, 'IND', 0.02);
+    /* Must be the SAME predicate the territory audit uses. inIndia is now
+     * stricter than a bare tolerance check (it refuses points strictly inside
+     * a neighbour), and the mismatch let launch points be validated by one
+     * test and flagged by the other — observed with Fatah-II origins landing
+     * inside PoK, which the India-POV boundary counts as Indian soil. */
+    const out = !inIndia(p.lat, p.lon);
     if (out) {
       if (firstOut === null) firstOut = d;
       if (d - firstOut >= clearKm) return firstOut;
@@ -267,7 +272,7 @@ export function findHostileLaunch(
     if (low > rangeMaxKm) return null;
     const rangeKm = low + rnd() * (rangeMaxKm - low);
     const o = project(aimLat, aimLon, bearing, rangeKm);
-    if (inCountryTolerant(o.lat, o.lon, 'IND', 0.02)) return null;    // final guard
+    if (inIndia(o.lat, o.lon)) return null;               // final guard, same predicate
     return { bearingFrom: bearing, rangeKm };
   };
 

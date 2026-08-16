@@ -246,14 +246,34 @@ genuinely needed gets added.
 | **QRSAM** | 🇮🇳 DRDO | 3–30 km | 30–10 000 m | Mach 4.7 | 6 |
 | **S-125 Pechora** | 🇷🇺🇮🇳 legacy | 3.5–35 km | 20–18 000 m | Mach 3.5 | 4 |
 
-### 🎯 Threats
+### 🎯 Threats — the adversary at full potential
 
-| Class | Systems modelled |
-|:--|:--|
-| **Ballistic** | Shaheen-II · Ghauri · Ghaznavi · Abdali |
-| **Cruise** | Babur — terrain-hugging, the hard case for long-range SAMs |
-| **UAV** | Shahpar-II class MALE · loitering munition |
-| **Aircraft** | JF-17 Thunder · F-16 · J-10C · Su-30 — low-level ingress |
+India's side models a complete layered network, so the threat side has to be equally complete or
+the problem is artificially easy. **32 systems across 12 capability classes**, each chosen to
+stress a *different* layer of the defence.
+
+| Class | Systems modelled | What it defeats |
+|:--|:--|:--|
+| **HGV** 🆕 | DF-17/DF-ZF · Fatah-II | Depressed manoeuvring glide — flies *below* exo-atmospheric BMD |
+| **MRBM** | Shaheen-II · Ghauri · Ababeel (MIRV) · DF-21 · DF-26 | Saturation and high-apogee re-entry |
+| **SRBM / TBM** | Ghaznavi · Abdali · DF-15B · Nasr | Nasr's 60 km lob leaves seconds of warning |
+| **Cruise** | Babur · Ra'ad-II ALCM · CJ-10 | Terrain-hugging, the hard case for long-range SAMs |
+| **Supersonic** 🆕 | CM-400AKG (Mach 4 dive) · YJ-12 (Mach 3 sea-skimmer) | Collapses reaction time |
+| **Stealth** 🆕 | J-20 Mighty Dragon · J-35A/FC-31 | Low RCS shrinks the effective radar horizon |
+| **Bomber** 🆕 | H-6K | Launches from stand-off, never enters the SAM envelope |
+| **Aircraft** | JF-17 Thunder · F-16 · J-10C · Su-30 · Mirage ROSE | Low-level ingress |
+| **Helicopter** 🆕 | AH-1Z Viper · Z-10ME | Nap-of-the-earth, *under* the radar horizon |
+| **UAV** | Shahpar-II · Akinci · Wing Loong II · GJ-11 stealth UCAV · loiterer | Small RCS, long exposure |
+| **Swarm** 🆕 | Co-ordinated small-UAV swarm | Magazine-depth attack; cost exchange favours the attacker |
+
+Split by operator: **15 Pakistani · 10 Chinese · 6 fielded by both**. Every figure is from
+published open-source reporting and **cited in-app**.
+
+Each class has its **own silhouette** — a glide vehicle is a lifting-body wedge with a plasma
+sheath (no rocket plume, since the glide phase is unpowered), a helicopter has a rotor disc and
+stub pylons, a swarm is a cluster of quadcopters inside a formation envelope, a stealth fighter is
+an all-straight-edge chined diamond. Airframes render at **53–78 px** so the shape is readable at
+theatre scale.
 
 Every figure is from published open-source reporting and **cited in-app**, alongside guidance
 method, associated radar, warhead mass, simultaneous-engagement capacity, reaction and reload times.
@@ -390,6 +410,8 @@ Every one of these was a **real bug, found by measurement**:
 | Batteries stacked **2.4 km** apart | separation audit | placement unaware of other units |
 | **9.8%** of QRSAM and **8.3%** of Akash batteries never had a track in range | per-system utilisation sweep | batteries were assigned to assets round-robin while threats picked targets at random, so short-range units defended cities nobody was attacking. "OUT OF RANGE" was the top infeasibility reason for every short-range type |
 | Point defence sited **417 km** from the asset it defends | battery-to-asset distance audit | the siting solver could relax standoff without limit to satisfy soil/dispersion, putting a 45 km Akash far outside its own reach of Delhi |
+| 3 of 32 threat systems **never appeared in any scenario** | roster-coverage sweep | the standoff band was computed as `max(min*0.45,120)..min(max,900)`, which INVERTS at both extremes — DF-26 got 1350..900 and Nasr got 120..70, so no bearing could ever satisfy it |
+| HGV tracks **originating inside PoK** | territory audit on the new class | the lateral weave displaced the first sample sideways across the frontier *after* the launch point had been validated on the straight line |
 | A battery sited **strictly inside Bangladesh** | off-soil vertex audit | the 2 km coastal tolerance band is blind to *which* side of the frontier it reaches across; it now refuses any point strictly inside a neighbour |
 | India drawn with the **wrong northern border** | boundary bbox check | bundled geometry topped out at 35.5°N, cutting off northern J&K, and used the UN rather than the India point of view |
 | Lakshadweep silently deleted | reference-point test (Kavaratti "not India") | island rings below an area threshold were dropped as specks |
@@ -406,6 +428,18 @@ Every one of these was a **real bug, found by measurement**:
   ✓ hostile origins in India    0        ✓ ghost rounds     0/3 461
   ✓ border in radar cover   100.0 %      ✓ console errors           0
   ✓ border in SAM envelope  100.0 %      ✓ min separation     7.1 km
+  ✓ threat roster exercised  32/32       ✓ tracks not crossing border 0
+```
+
+Every one of the 12 threat classes is neutralised 100% of the time, with physically sensible
+flight profiles — HGV glides at 48 km / Mach 10, helicopters at 2.6 km / Mach 0.24, ballistic
+apogees at 94–133 km:
+
+```
+  HGV 48.0 km M10.0     MRBM 132.9 km M8.9     SRBM 93.8 km M6.8
+  SUPCRUISE 14.5 km M4.0   STEALTH 12.3 km M1.0   BOMBER 8.2 km M0.85
+  AIRCRAFT 7.1 km M0.94    DRONE 5.4 km M0.18     HELO 2.6 km M0.24
+  SWARM 1.1 km M0.10       CRUISE 0.5 km M0.81    TBM 36.5 km M3.5
 ```
 
 Per-system utilisation, after the siting fixes — every threat class now 100% neutralised:

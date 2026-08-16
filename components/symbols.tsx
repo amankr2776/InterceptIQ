@@ -222,6 +222,165 @@ export function RadarIcon({ s = 1, sweep = true }: { s?: number; sweep?: boolean
   );
 }
 
+/**
+ * HYPERSONIC GLIDE VEHICLE — a lifting body, not a missile.
+ * Deliberately a wedge: wide flat underside, sharp nose, no cylindrical
+ * fuselage, with a plasma sheath rather than a rocket plume (the glide phase
+ * is unpowered). It must be unmistakable at a glance because it is the one
+ * threat the exo-atmospheric layer cannot reach.
+ */
+export function GlideBody({ s = 1, col = COL.threat }: { s?: number; col?: string }) {
+  return (
+    <g transform={`scale(${s})`}>
+      {/* plasma / shock heating around the leading edges */}
+      <g className="plume">
+        <path d="M0,-13 L9,7 L-9,7 Z" fill="#ff7a3c" opacity=".28" />
+        <path d="M0,-11 L6.5,5 L-6.5,5 Z" fill="#ffd9a0" opacity=".42" />
+      </g>
+      {/* lifting-body wedge */}
+      <path d="M0,-12 L7.5,6.5 L4.5,8 L-4.5,8 L-7.5,6.5 Z"
+        fill="#241820" stroke={col} strokeWidth="1.35" strokeLinejoin="round" />
+      {/* hot leading edges */}
+      <path d="M0,-12 L7.5,6.5 M0,-12 L-7.5,6.5"
+        stroke="#ffd2a8" strokeWidth="1.15" opacity=".95" />
+      {/* control flaps */}
+      <path d="M4.6,8 L7.4,11 L3.4,11 Z M-4.6,8 L-7.4,11 L-3.4,11 Z"
+        fill={col} fillOpacity=".9" />
+      {/* centreline ridge */}
+      <path d="M0,-9 L0,7" stroke={col} strokeWidth=".8" opacity=".55" />
+    </g>
+  );
+}
+
+/**
+ * SUPERSONIC STAND-OFF MISSILE — slim, sharply pointed, ramjet intake,
+ * cropped delta fins. Reads as "fast" next to the fatter subsonic cruise body.
+ */
+export function SupersonicBody({ s = 1, col = COL.threat }: { s?: number; col?: string }) {
+  return (
+    <g transform={`scale(${s})`}>
+      <g className="plume">
+        <ellipse cy="13" rx="2" ry="8.5" fill="#ffb020" opacity=".45" />
+        <ellipse cy="10" rx="1.05" ry="4.6" fill="#fff3d6" opacity=".95" />
+      </g>
+      {/* cropped delta wings */}
+      <path d="M1.9,0 L7.6,5.5 L7.6,7 L1.9,4 Z" fill={col} fillOpacity=".8" />
+      <path d="M-1.9,0 L-7.6,5.5 L-7.6,7 L-1.9,4 Z" fill={col} fillOpacity=".8" />
+      {/* tail fins */}
+      <path d="M1.9,5.5 L4.6,8.6 L1.9,8.6 Z M-1.9,5.5 L-4.6,8.6 L-1.9,8.6 Z" fill={col} />
+      {/* needle-nosed body */}
+      <path d="M0,-14 L2,-6.5 L2,8.4 L-2,8.4 L-2,-6.5 Z"
+        fill="#1b2330" stroke={col} strokeWidth="1.2" strokeLinejoin="round" />
+      {/* ventral ramjet intake */}
+      <path d="M-1.5,1.5 L1.5,1.5 L1.2,5.4 L-1.2,5.4 Z" fill="#55627a" opacity=".9" />
+      <circle cy="-10.5" r="1.05" fill="#ffe3e7" />
+    </g>
+  );
+}
+
+/** ATTACK HELICOPTER — rotor disc, stub weapon pylons, tail boom. */
+export function HeloIcon({ s = 1, col = COL.threat }: { s?: number; col?: string }) {
+  return (
+    <g transform={`scale(${s})`}>
+      {/* spinning main rotor disc */}
+      <g className="rotor">
+        <ellipse rx="13.5" ry="3.2" cy="-1" fill="none" stroke={col}
+          strokeWidth=".8" strokeOpacity=".5" />
+        <path d="M-13.5,-1 L13.5,-1" stroke={col} strokeWidth="1.5" strokeOpacity=".85" />
+        <path d="M-6,-4.4 L6,2.4" stroke={col} strokeWidth="1.1" strokeOpacity=".45" />
+      </g>
+      {/* tail boom + rotor */}
+      <path d="M-1.5,4 L-1.5,11 L1.5,11 L1.5,4 Z" fill="#1b2330" stroke={col} strokeWidth="1" />
+      <path d="M-3.4,11.6 L3.4,11.6" stroke={col} strokeWidth="1.4" strokeLinecap="round" />
+      {/* fuselage — tandem cockpit profile */}
+      <path d="M0,-7 C2.6,-6 3.4,-3 3.4,0 L3.4,4.5 L-3.4,4.5 L-3.4,0 C-3.4,-3 -2.6,-6 0,-7 Z"
+        fill="#1b2330" stroke={col} strokeWidth="1.25" strokeLinejoin="round" />
+      {/* stub wings with pylons */}
+      <path d="M3.2,-0.5 L7.6,0.6 L7.6,2.1 L3.2,1.4 Z" fill={col} fillOpacity=".85" />
+      <path d="M-3.2,-0.5 L-7.6,0.6 L-7.6,2.1 L-3.2,1.4 Z" fill={col} fillOpacity=".85" />
+      {/* canopy */}
+      <ellipse cy="-3.6" rx="1.9" ry="2.6" fill="#9fd0ff" opacity=".6" />
+    </g>
+  );
+}
+
+/** STEALTH FIGHTER — chined diamond planform, canted tails, no curves. */
+export function StealthIcon({ s = 1, col = COL.threat }: { s?: number; col?: string }) {
+  return (
+    <g transform={`scale(${s})`}>
+      <g className="plume">
+        <ellipse cy="12" rx="2.6" ry="6" fill="#9fd0ff" opacity=".3" />
+      </g>
+      {/* faceted diamond wing — all straight edges, aligned planform */}
+      <path d="M0,-13 L3,-4 L11,5.5 L9,8.5 L3.2,6.6 L2.4,10 L-2.4,10 L-3.2,6.6 L-9,8.5 L-11,5.5 L-3,-4 Z"
+        fill="#151d2a" stroke={col} strokeWidth="1.3" strokeLinejoin="round" />
+      {/* canted twin tails */}
+      <path d="M2.6,6 L5.6,11 L3.4,11 Z M-2.6,6 L-5.6,11 L-3.4,11 Z"
+        fill={col} fillOpacity=".9" />
+      {/* chine highlight */}
+      <path d="M0,-13 L3,-4 L11,5.5 M0,-13 L-3,-4 L-11,5.5"
+        stroke="#cfe8ff" strokeWidth=".7" fill="none" opacity=".55" />
+      {/* internal bay line */}
+      <path d="M-2,0 L2,0" stroke={col} strokeWidth=".7" opacity=".6" />
+      <circle cy="-8" r="1" fill="#ffd7dc" />
+    </g>
+  );
+}
+
+/** HEAVY BOMBER — long fuselage, broad swept wings, four engines. */
+export function BomberIcon({ s = 1, col = COL.threat }: { s?: number; col?: string }) {
+  return (
+    <g transform={`scale(${s})`}>
+      {/* big swept wings */}
+      <path d="M2.6,-3 L14,4 L14,6.2 L2.6,2.2 Z" fill="#2b3444" stroke={col} strokeWidth=".9" strokeLinejoin="round" />
+      <path d="M-2.6,-3 L-14,4 L-14,6.2 L-2.6,2.2 Z" fill="#2b3444" stroke={col} strokeWidth=".9" strokeLinejoin="round" />
+      {/* engine nacelles, two per side */}
+      <rect x="4.6" y="0.6" width="2.2" height="4.4" rx=".7" fill="#0d1420" stroke={col} strokeWidth=".7" />
+      <rect x="8.4" y="1.8" width="2.2" height="4.4" rx=".7" fill="#0d1420" stroke={col} strokeWidth=".7" />
+      <rect x="-6.8" y="0.6" width="2.2" height="4.4" rx=".7" fill="#0d1420" stroke={col} strokeWidth=".7" />
+      <rect x="-10.6" y="1.8" width="2.2" height="4.4" rx=".7" fill="#0d1420" stroke={col} strokeWidth=".7" />
+      {/* tailplane */}
+      <path d="M2,8.5 L6.4,11.5 L6.4,12.8 L2,10.6 Z" fill={col} fillOpacity=".85" />
+      <path d="M-2,8.5 L-6.4,11.5 L-6.4,12.8 L-2,10.6 Z" fill={col} fillOpacity=".85" />
+      {/* long fuselage */}
+      <path d="M0,-13 C2,-11 2.6,-8 2.6,-5 L2.6,11.5 L-2.6,11.5 L-2.6,-5 C-2.6,-8 -2,-11 0,-13 Z"
+        fill="#1b2330" stroke={col} strokeWidth="1.3" strokeLinejoin="round" />
+      {/* fin */}
+      <path d="M0,7.5 L0,13.5 L-1.5,13.5 L-1.5,9 Z" fill={col} fillOpacity=".9" />
+      <ellipse cy="-9.5" rx="1.5" ry="2.1" fill="#9fd0ff" opacity=".6" />
+    </g>
+  );
+}
+
+/**
+ * UAV SWARM — a cluster of small rotorcraft rather than one airframe, so the
+ * viewer immediately reads "many cheap tracks" instead of "one target".
+ */
+export function SwarmIcon({ s = 1, col = COL.threat }: { s?: number; col?: string }) {
+  const one = (x: number, y: number, r: number) => (
+    <g transform={`translate(${x},${y}) scale(${r})`}>
+      <circle r="1.5" fill="#1b2330" stroke={col} strokeWidth="1" />
+      <path d="M-3,-3 L3,3 M3,-3 L-3,3" stroke={col} strokeWidth=".85" opacity=".9" />
+      <circle cx="-3" cy="-3" r="1.5" fill="none" stroke={col} strokeWidth=".6" opacity=".75" />
+      <circle cx="3" cy="-3" r="1.5" fill="none" stroke={col} strokeWidth=".6" opacity=".75" />
+      <circle cx="-3" cy="3" r="1.5" fill="none" stroke={col} strokeWidth=".6" opacity=".75" />
+      <circle cx="3" cy="3" r="1.5" fill="none" stroke={col} strokeWidth=".6" opacity=".75" />
+    </g>
+  );
+  return (
+    <g transform={`scale(${s})`}>
+      {/* loose formation envelope */}
+      <circle r="12" fill={col} fillOpacity=".07" stroke={col}
+        strokeWidth=".8" strokeOpacity=".45" strokeDasharray="2 3" />
+      {one(0, -5.5, 1.05)}
+      {one(-6, 1.5, 0.9)}
+      {one(6, 1.5, 0.9)}
+      {one(-2.4, 7.5, 0.78)}
+      {one(3.4, 7, 0.78)}
+    </g>
+  );
+}
+
 /** Small fixed-wing UAV / loitering-munition planform, nose-up. */
 export function DroneIcon({ s = 1, col = COL.threat }: { s?: number; col?: string }) {
   return (
@@ -240,6 +399,32 @@ export function DroneIcon({ s = 1, col = COL.threat }: { s?: number; col?: strin
   );
 }
 
+
+/**
+ * THREAT GLYPH DISPATCHER
+ * One place that maps a ThreatClass to its silhouette, so every map, legend
+ * and panel in the app draws the same shape for the same class. Each class
+ * gets a genuinely distinct outline — a viewer must be able to tell a glide
+ * vehicle from a bomber from a swarm at a glance, without reading the label.
+ */
+export function ThreatGlyph({ cls, s = 1 }: { cls: string; s?: number }) {
+  switch (cls) {
+    case 'HGV': return <GlideBody s={s} />;
+    case 'SUPCRUISE': return <SupersonicBody s={s} />;
+    case 'HELO': return <HeloIcon s={s} />;
+    case 'STEALTH': return <StealthIcon s={s} />;
+    case 'BOMBER': return <BomberIcon s={s} />;
+    case 'SWARM': return <SwarmIcon s={s} />;
+    case 'DRONE': return <DroneIcon s={s} />;
+    case 'AIRCRAFT':
+      return (
+        <path d={symbolPath('AIRCRAFT')} transform={`scale(${s})`}
+          fill={COL.threat} fillOpacity=".9" stroke="#ffd7dc" strokeWidth="1.1"
+          strokeLinejoin="round" />
+      );
+    default: return <MissileBody cls={cls} s={s} />;
+  }
+}
 
 /** Arrow-marker defs — must be included once per <svg> that draws engagement lines. */
 export function EngagementDefs() {

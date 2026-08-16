@@ -13,7 +13,7 @@ import {
   killTimes, shotPhase, interceptorAt, interceptorHeading,
   salvoSide, salvoLoft, flyoutPath,
 } from '@/lib/flight';
-import { ShieldIcon, BurstIcon, BatteryIcon, EngagementDefs, MissileBody, InterceptorBody, DroneIcon, launcherClassFor, symbolPath, COL } from './symbols';
+import { ShieldIcon, BurstIcon, BatteryIcon, EngagementDefs, InterceptorBody, ThreatGlyph, launcherClassFor, COL } from './symbols';
 
 export type Sel =
   | { kind: 'threat'; id: string }
@@ -39,6 +39,25 @@ const V = 1000;
  *  actually needs: what is attacking, not an internal callsign. */
 function threatName(systemId: string, cls: string): string {
   return THREATS.find((x) => x.id === systemId)?.name ?? cls;
+}
+
+/**
+ * Per-class glyph scale. A swarm cluster and a bomber are naturally large;
+ * a ballistic RV or a loitering munition is a small body and needs more
+ * magnification to read as a distinct shape at theatre scale.
+ */
+function GLYPH_SCALE(cls: string): number {
+  switch (cls) {
+    case 'SWARM': return 1.5;
+    case 'BOMBER': return 1.7;
+    case 'STEALTH': return 1.8;
+    case 'HELO': return 1.8;
+    case 'HGV': return 1.9;
+    case 'SUPCRUISE': return 1.9;
+    case 'AIRCRAFT': return 1.8;
+    case 'DRONE': return 1.9;
+    default: return 1.8;      // ballistic bodies
+  }
 }
 
 /** Ground-track heading (deg, 0 = north) of a threat at time t, for icon rotation. */
@@ -515,13 +534,16 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                   {isSel && <circle cx={PX(st.p.lon)} cy={PY(st.p.lat)} r={18 * iz} fill="none" stroke={COL.asset} strokeWidth={iz} strokeDasharray={`${3 * iz} ${3 * iz}`} />}
                   <g transform={`translate(${PX(st.p.lon)},${PY(st.p.lat)}) scale(${iz})`}>
                     <g transform={`rotate(${headingAt(th, t)})`}>
-                      {th.cls === 'DRONE'
-                        ? <DroneIcon s={1.0 * ICON} />
-                        : th.cls === 'AIRCRAFT'
-                        ? <path d={symbolPath('AIRCRAFT')} transform={`scale(${1.15 * ICON})`}
-                            fill={COL.threat} fillOpacity=".9" stroke="#ffd7dc" strokeWidth="1.1"
-                            strokeLinejoin="round" />
-                        : <MissileBody cls={th.cls} s={1.05 * ICON} />}
+                      {/* One dispatcher for every class, so a glide vehicle,
+                        * bomber, helicopter and swarm are each unmistakable. */}
+                      {/* Threat airframes are drawn LARGER than the map's
+                        * base icon scale. Measured at the old 1.08x, a
+                        * silhouette rendered 6-16 px wide beside a 133 px
+                        * label — the shape was unreadable, which defeats the
+                        * point of having distinct shapes per class. Small,
+                        * fast bodies get the biggest boost since they have
+                        * the least area to read. */}
+                      <ThreatGlyph cls={th.cls} s={GLYPH_SCALE(th.cls) * ICON} />
                     </g>
                     {/* ATTACKER TYPE is the headline — the real weapon name
                       * (JF-17, Shaheen-II, Babur, Shahpar-II) in full size.
