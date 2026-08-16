@@ -1,3 +1,4 @@
+// Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets
 /** Deterministic seeded PRNG (mulberry32) — reproducible demos + shareable seeds. */
 export function makeRng(seed: number) {
   let a = seed >>> 0;

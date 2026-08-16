@@ -1,3 +1,4 @@
+// Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets
 import type { Metadata } from 'next';
 import { JetBrains_Mono } from 'next/font/google';
 import './globals.css';

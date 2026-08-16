@@ -1,4 +1,5 @@
 'use client';
+// Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets
 import React from 'react';
 import type { AllocationSolution, Scenario } from '@/lib/types';
 import { COL, ShieldIcon } from './symbols';

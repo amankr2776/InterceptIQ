@@ -1,3 +1,4 @@
+// Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets
 import { makeRng } from './rng';
 import { INTERCEPTORS, type InterceptorSpec } from './systems';
 import { SECTORS, THEATRES } from './theatre';

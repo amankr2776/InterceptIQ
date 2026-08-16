@@ -1,3 +1,4 @@
+// Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets
 import { linearSumAssignment } from './hungarian';
 import { solveEngagement } from './geometry';
 import type {

@@ -1,3 +1,4 @@
+// Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets
 /**
  * Hungarian / Jonker-Volgenant style O(n^3) rectangular assignment.
  * Direct equivalent of scipy.optimize.linear_sum_assignment(cost).

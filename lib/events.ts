@@ -1,3 +1,4 @@
+// Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets
 import type { AllocationSolution, Scenario } from './types';
 
 export type EventKind =

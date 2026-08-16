@@ -1,3 +1,4 @@
+// Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets
 /** Degrees → DMS with hemisphere, the way a C2 console shows coordinates. */
 export function dms(v: number, isLat: boolean) {
   const h = isLat ? (v >= 0 ? 'N' : 'S') : v >= 0 ? 'E' : 'W';
