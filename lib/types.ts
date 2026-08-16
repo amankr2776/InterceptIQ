@@ -51,6 +51,11 @@ export interface Threat {
   targetAssetName: string;
   bearingDeg: number;    // ground-track heading
   rangeKm: number;       // origin -> impact great-circle-ish ground range
+  /** Simulation time (s) at which the track crosses into Indian airspace.
+   *  Batteries go to alert on this event. null = never crosses (shouldn't happen). */
+  borderCrossT: number | null;
+  /** Geodetic point where it crosses the frontier. */
+  borderCrossP: GeoPoint | null;
 }
 
 /** PS input (b): "Set of multiple locations/areas (polygons of Lat & Lon)

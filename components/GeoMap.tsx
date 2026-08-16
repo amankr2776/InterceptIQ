@@ -3,6 +3,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import type { AllocationSolution, Scenario } from '@/lib/types';
 import { stateAt } from '@/lib/geometry';
 import { region } from '@/lib/theatre';
+import { batteryStatuses, type BatteryState } from '@/lib/alert';
 import { useElementSize } from '@/lib/useElementSize';
 import { KM_LAT, kmLon } from '@/lib/scenario';
 import { ShieldIcon, BurstIcon, BatteryIcon, EngagementDefs, MissileBody, InterceptorBody, DroneIcon, launcherClassFor, COL } from './symbols';
@@ -116,6 +117,13 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
   }), [sc, sol, t]);
 
   const selArea = new Set(sol?.selectedAreaIds ?? []);
+  /* Live readiness per battery — READY / ALERT / TRACKING / LOCKED / FIRING.
+   * Drives colour, the alert ring and the status caption on the map. */
+  const statusById = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof batteryStatuses>[0]>();
+    for (const st of batteryStatuses(sc, sol, t)) m.set(st.areaId, st);
+    return m;
+  }, [sc, sol, t]);
   const selT = sel?.kind === 'threat' ? sel.id : null;
   const selS = sel?.kind === 'site' ? sel.id : null;
   /* Inverse scale for glyphs: cancels pan-zoom AND the base fit so icons keep
@@ -272,7 +280,16 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
         {/* ---------- BATTERIES (real systems) ---------- */}
         {sc.areas.map((a) => {
           const on = a.active, used = selArea.has(a.id), hi = selS === a.id;
-          const col = !on ? '#6b2f3d' : used ? '#ffb020' : '#436078';
+          const st = statusById.get(a.id);
+          const stName: BatteryState = st?.state ?? 'READY';
+          // a battery that is reacting takes its readiness colour
+          const active = stName === 'ALERT' || stName === 'TRACKING' ||
+                         stName === 'LOCKED' || stName === 'FIRING';
+          const stCol = stName === 'ALERT' ? '#ffb020'
+            : stName === 'TRACKING' ? '#38bdf8'
+            : stName === 'LOCKED' ? '#a78bfa'
+            : stName === 'FIRING' ? COL.intcp : COL.intcp;
+          const col = !on ? '#6b2f3d' : active ? stCol : used ? COL.intcp : '#3c5b74';
           const cx = PX(a.centroid.lon), cy = PY(a.centroid.lat);
           const showRing = layers.rings && (used || hi || !on);
           return (
@@ -290,6 +307,24 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
               <polygon points={a.polygon.map((p) => `${PX(p.lon)},${PY(p.lat)}`).join(' ')}
                 fill={on ? (used ? 'rgba(255,176,32,.22)' : 'rgba(67,96,120,.2)') : 'rgba(107,47,61,.28)'}
                 stroke={col} strokeWidth={(hi ? 2.2 : 1.4) * iz} />
+              {/* readiness ring — grows and brightens as the battery works up
+                  through ALERT -> TRACKING -> LOCKED -> FIRING */}
+              {on && active && (
+                <g transform={`translate(${cx},${cy})`}>
+                  <circle r={(stName === 'FIRING' ? 22 : stName === 'LOCKED' ? 19 : 16) * iz}
+                    fill="none" stroke={col}
+                    strokeWidth={(stName === 'LOCKED' || stName === 'FIRING' ? 1.7 : 1.2) * iz}
+                    strokeOpacity=".9"
+                    strokeDasharray={stName === 'TRACKING' ? `${4 * iz} ${4 * iz}` : `${3 * iz} ${3 * iz}`}
+                    className={stName === 'LOCKED' ? 'pulse' : 'radar-ring'} />
+                  <text y={-27 * iz} fill={col} fontSize={8.5 * iz} textAnchor="middle"
+                    letterSpacing={.6 * iz}
+                    stroke="#040910" strokeWidth={2.4 * iz} paintOrder="stroke">
+                    {stName}{st?.countdownS != null && st.countdownS <= 30
+                      ? ` ${st.countdownS.toFixed(0)}s` : ''}
+                  </text>
+                </g>
+              )}
               <g transform={`translate(${cx},${cy}) scale(${iz})`}>
                 {/* launcher size scales with the class of system */}
                 <BatteryIcon
@@ -299,7 +334,7 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                   <circle r={a.maxSlantRange >= 150 ? 15 : 12} fill="none" stroke={col}
                     strokeWidth=".9" strokeOpacity=".5" strokeDasharray="2 3" />
                 )}
-                {(used || hi || !on) && (
+                {(used || hi || !on || active) && (
                   <>
                     <text y={-15 * ICON} fill={col} fontSize={10 * ICON} textAnchor="middle" fontWeight="600"
                       stroke="#040910" strokeWidth="2.8" paintOrder="stroke">{a.name}</text>

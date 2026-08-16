@@ -8,6 +8,7 @@ import { MapLegend, COL, ShieldIcon, BurstIcon, ThreatChip } from '@/components/
 import { useMission } from '@/lib/store';
 import { THEATRES } from '@/lib/theatre';
 import { dms } from '@/lib/format';
+import { batteryStatuses, airspaceViolated, networkAlert, STATE_COLOUR } from '@/lib/alert';
 
 const LAYERS = [
   ['tracks', 'Threat tracks'], ['predict', 'Predicted path'], ['engage', 'Interceptors'],
@@ -34,11 +35,18 @@ export default function Overview() {
   const m = sol.metrics;
   const theatre = THEATRES.find((x) => x.id === sc.theatreId);
   const allStopped = m.leakers === 0;
+  const statuses = batteryStatuses(sc, sol, t);
+  const violators = airspaceViolated(sc, t);
+  const netAlert = networkAlert(statuses);
+  const statusOf = (id: string) => statuses.find((x) => x.areaId === id);
 
   return (
     <div style={{ display: 'grid', gridTemplateRows: 'auto auto 1fr auto', height: '100vh', overflow: 'hidden' }}>
       <Nav right={
         <>
+          <Pill label={`AD: ${netAlert}`}
+            state={netAlert === 'READY' ? 'idle'
+              : netAlert === 'FIRING' || netAlert === 'LOCKED' ? 'crit' : 'warn'} />
           <Pill label={playing ? 'SIM RUNNING' : 'SIM HOLD'} state={playing ? 'ok' : 'idle'} />
           <Pill label={sol.certified ? 'MINIMAL: PROVEN' : 'MINIMAL: HEURISTIC'} state={sol.certified ? 'ok' : 'warn'} />
         </>
@@ -129,18 +137,32 @@ export default function Overview() {
             </button>
           ))}
 
-          <div className="lbl" style={{ marginTop: 11, opacity: .75 }}>Judge controls</div>
+          <div className="lbl" style={{ marginTop: 11, opacity: .75 }}>Battery status</div>
           <button className={addMode ? 'on' : ''} style={{ width: '100%', marginTop: 4, fontSize: 8.5 }}
             onClick={() => setAddMode(!addMode)}>
             {addMode ? '◉ Click map…' : '+ Inject threat'}
           </button>
-          {sc.areas.map((a) => (
-            <button key={a.id} className={!a.active ? 'danger on' : ''}
-              style={{ width: '100%', marginTop: 2, fontSize: 8, textAlign: 'left', padding: '3px 5px' }}
-              onClick={() => toggleSite(a.id)}>
-              {a.active ? '✕ kill ' : '↻ up '}{a.name.split(' ')[0]}
-            </button>
-          ))}
+          {sc.areas.map((a) => {
+            const st = statusOf(a.id);
+            return (
+              <div key={a.id} style={{ display: 'flex', gap: 3, marginTop: 2 }}>
+                <div style={{
+                  flex: 1, fontSize: 8, padding: '3px 5px', lineHeight: 1.3,
+                  border: '1px solid var(--line)', borderRadius: 2,
+                  borderLeft: `2px solid ${st ? STATE_COLOUR[st.state] : 'var(--line)'}`,
+                }}>
+                  <div style={{ color: 'var(--txt)' }}>{a.name}</div>
+                  <div style={{ color: st ? STATE_COLOUR[st.state] : 'var(--dim2)' }}>
+                    {st?.state}{st?.countdownS != null && st.countdownS <= 30
+                      ? ` ${st.countdownS.toFixed(0)}s` : ''} · {st?.roundsLeft ?? a.inventory} rds
+                  </div>
+                </div>
+                <button className={!a.active ? 'danger on' : ''}
+                  style={{ fontSize: 7.5, padding: '3px 4px' }}
+                  onClick={() => toggleSite(a.id)}>{a.active ? 'KILL' : 'UP'}</button>
+              </div>
+            );
+          })}
         </aside>
 
         <main style={{ position: 'relative', minWidth: 0, minHeight: 0 }}>
@@ -152,6 +174,25 @@ export default function Overview() {
           <div style={{ position: 'absolute', top: 10, left: 10 }}>
             <MapLegend />
           </div>
+
+          {/* airspace violation banner — appears the moment a track crosses */}
+          {violators.length > 0 && (
+            <div className="fadein" style={{
+              position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
+              background: 'rgba(24,8,12,.95)', border: '1px solid var(--threat)',
+              borderRadius: 3, padding: '6px 14px', display: 'flex', gap: 10, alignItems: 'center',
+            }}>
+              <span className="pulse" style={{
+                width: 7, height: 7, borderRadius: '50%', background: 'var(--threat)',
+              }} />
+              <span style={{ fontSize: 11, color: 'var(--threat)', letterSpacing: '.08em' }}>
+                AIRSPACE VIOLATION — {violators.length} HOSTILE TRACK{violators.length > 1 ? 'S' : ''} INBOUND
+              </span>
+              <span style={{ fontSize: 9.5, color: 'var(--dim)' }}>
+                {violators.map((v) => v.callsign).join(' · ')}
+              </span>
+            </div>
+          )}
 
           <div style={{ position: 'absolute', left: 10, bottom: 10, background: 'rgba(6,10,15,.92)', border: '1px solid var(--line)', borderRadius: 2, padding: '4px 8px', fontSize: 9, color: 'var(--dim)', pointerEvents: 'none' }}>
             {cursor ? `${dms(cursor.lat, true)}  ${dms(cursor.lon, false)}` : 'scroll to zoom · drag to pan · click any icon to inspect'}

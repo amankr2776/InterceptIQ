@@ -131,6 +131,11 @@ export function injectThreat(
   const last = samples[samples.length - 1];
   const first = samples[0];
   const gnd = Math.hypot(last.l.x - first.l.x, last.l.y - first.l.y);
+  let crossT: number | null = null;
+  let crossP: typeof first.p | null = null;
+  for (const sm of samples) {
+    if (inIndia(sm.p.lat, sm.p.lon)) { crossT = sm.t; crossP = sm.p; break; }
+  }
   let flyBear = (Math.atan2(last.l.x - first.l.x, last.l.y - first.l.y) * 180) / Math.PI;
   if (flyBear < 0) flyBear += 360;
   const n = sc.threats.length + 1;
@@ -149,5 +154,7 @@ export function injectThreat(
     targetAssetName: nearest.a.name,
     bearingDeg: +flyBear.toFixed(1),
     rangeKm: +gnd.toFixed(1),
+    borderCrossT: crossT,
+    borderCrossP: crossP,
   };
 }

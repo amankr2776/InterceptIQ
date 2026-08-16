@@ -95,3 +95,6 @@ td { padding: 4px 7px; }
 .radar-sweep { animation: radarSweep 4s linear infinite; transform-origin: 0 0; }
 @keyframes flicker { 0%,100% { opacity: 1 } 50% { opacity: .55 } }
 .plume { animation: flicker .18s steps(2) infinite; }
+
+@keyframes radarRing { 0%,100% { stroke-dashoffset: 0 } 100% { stroke-dashoffset: -40 } }
+.radar-ring { animation: radarRing 2.5s linear infinite; }
