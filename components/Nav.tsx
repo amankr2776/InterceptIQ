@@ -22,7 +22,7 @@ export default function Nav({ right }: { right?: React.ReactNode }) {
         <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--amb)', letterSpacing: '.06em' }}>
           InterceptIQ
         </span>
-        <span style={{ fontSize: 8, color: 'var(--dim2)' }}>CK115</span>
+        <span style={{ fontSize: 8, color: 'var(--dim2)' }}>AIR DEFENCE C2</span>
       </Link>
 
       <nav style={{ display: 'flex', gap: 2, height: '100%' }}>

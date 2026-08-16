@@ -6,7 +6,7 @@ import { MissionProvider } from '@/lib/store';
 const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'CK115 — Interceptor Allocation C2',
+  title: 'InterceptIQ — Interceptor Launch-Area Optimisation',
   description: 'Real-time interceptor launch-area allocation and engagement planning.',
 };
 

@@ -1,7 +1,6 @@
-// CK115 — Core domain types
-// PS: "Identification of optimal set of multiple interceptor launch areas
-//      to maximise the destruction of multiple air targets"
-// Org: Dte of IT & Cyber Security, DRDO
+// Core domain types
+// Identification of optimal set of multiple interceptor launch areas
+// to maximise the destruction of multiple air targets
 
 /** Geodetic point as specified by the PS: Latitude, Longitude, Altitude(m). */
 export interface GeoPoint {

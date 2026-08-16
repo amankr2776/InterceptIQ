@@ -1,10 +1,12 @@
-# InterceptIQ — CK115
+# InterceptIQ
+
+### Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets
 
 **Live:** https://interceptiq.vercel.app
 
 Tactical command-and-control prototype for **optimal interceptor launch-area selection** over the Indian subcontinent.
 
-> **Problem (SIH CK115, Dte of IT & Cyber Security, DRDO):** identify the optimal set of land-based launch locations to maximise kill probability against multiple inbound air targets — the output being the **minimal subset** of candidate deployment areas.
+> Identify the optimal set of land-based launch locations to maximise kill probability against multiple inbound air targets — the output being the **minimal subset** of candidate deployment areas.
 
 ---
 
