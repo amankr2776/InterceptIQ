@@ -2,6 +2,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { region, SECTORS } from '@/lib/theatre';
 import type { NationalLaydown, NationalBattery } from '@/lib/national';
+import { useElementSize } from '@/lib/useElementSize';
 
 const V = 1000;
 /** National window covering India + neighbours. */
@@ -36,6 +37,17 @@ export default function IndiaMap({ lay, sel, onSel, hover, onHover, layers, onCu
   const [view, setView] = useState({ x: 0, y: 0, z: 1 });
   const drag = useRef<{ sx: number; sy: number; vx: number; vy: number; moved: boolean } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const { ref: wrapRef, size } = useElementSize<HTMLDivElement>();
+
+  // Match the container aspect so the map fills the panel instead of
+  // letterboxing into a square and rendering small.
+  const aspect = size.w / size.h;
+  const VW = aspect >= 1 ? V * aspect : V;
+  const VH = aspect >= 1 ? V : V / aspect;
+  const FIT = 0.96;
+  const base = (Math.min(VW, VH) / V) * FIT;
+  const offX = (VW - V * base) / 2;
+  const offY = (VH - V * base) / 2;
 
   // equirectangular fit of WIN into a square viewbox
   const lonSpan = WIN.e - WIN.w;
@@ -62,16 +74,20 @@ export default function IndiaMap({ lay, sel, onSel, hover, onHover, layers, onCu
     };
   }, [PX, PY]);
 
-  const toLL = useCallback((cx: number, cy: number) => {
+  const toVB = useCallback((cx: number, cy: number) => {
     const r = svgRef.current!.getBoundingClientRect();
-    const sz = Math.min(r.width, r.height);
-    const ox = r.left + (r.width - sz) / 2, oy = r.top + (r.height - sz) / 2;
-    const ux = ((cx - ox) / sz) * V, uy = ((cy - oy) / sz) * V;
-    const wx = (ux - view.x) / view.z, wy = (uy - view.y) / view.z;
-    return { lon: WIN.w + (wx / V) * lonSpan, lat: WIN.s + ((V - wy) / V) * latSpan };
-  }, [view, lonSpan, latSpan]);
+    return { ux: ((cx - r.left) / r.width) * VW, uy: ((cy - r.top) / r.height) * VH };
+  }, [VW, VH]);
 
-  const iz = 1 / view.z;
+  const toLL = useCallback((cx: number, cy: number) => {
+    const { ux, uy } = toVB(cx, cy);
+    const wx = ((ux - view.x) / view.z - offX) / base;
+    const wy = ((uy - view.y) / view.z - offY) / base;
+    return { lon: WIN.w + (wx / V) * lonSpan, lat: WIN.s + ((V - wy) / V) * latSpan };
+  }, [toVB, view, offX, offY, base, lonSpan, latSpan]);
+
+  const iz = 1 / (view.z * base);
+  const ICON = 1.5;
   const selSector = sel?.kind === 'sector' ? sel.id : null;
   const selBat = sel?.kind === 'battery' ? sel.id : null;
   const selRadar = sel?.kind === 'radar' ? sel.id : null;
@@ -81,25 +97,22 @@ export default function IndiaMap({ lay, sel, onSel, hover, onHover, layers, onCu
     : l === 'Medium-range' ? '#34d399' : '#38bdf8';
 
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${V} ${V}`} preserveAspectRatio="xMidYMid meet"
+    <div ref={wrapRef} style={{ width: '100%', height: '100%' }}>
+    <svg ref={svgRef} viewBox={`0 0 ${VW.toFixed(0)} ${VH.toFixed(0)}`} preserveAspectRatio="none"
       style={{ width: '100%', height: '100%', display: 'block', background: '#040910', cursor: 'grab' }}
       onMouseDown={(e) => { drag.current = { sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, moved: false }; }}
       onMouseMove={(e) => {
         onCursor?.(toLL(e.clientX, e.clientY));
         if (!drag.current) return;
         const r = svgRef.current!.getBoundingClientRect();
-        const sz = Math.min(r.width, r.height);
         if (Math.abs(e.clientX - drag.current.sx) + Math.abs(e.clientY - drag.current.sy) > 3) drag.current.moved = true;
-        setView((v) => ({ ...v, x: drag.current!.vx + ((e.clientX - drag.current!.sx) / sz) * V,
-                                 y: drag.current!.vy + ((e.clientY - drag.current!.sy) / sz) * V }));
+        setView((v) => ({ ...v, x: drag.current!.vx + ((e.clientX - drag.current!.sx) / r.width) * VW,
+                                 y: drag.current!.vy + ((e.clientY - drag.current!.sy) / r.height) * VH }));
       }}
       onMouseUp={() => { drag.current = null; }}
       onMouseLeave={() => { drag.current = null; onCursor?.(null); onHover(null); }}
       onWheel={(e) => {
-        const r = svgRef.current!.getBoundingClientRect();
-        const sz = Math.min(r.width, r.height);
-        const ox = r.left + (r.width - sz) / 2, oy = r.top + (r.height - sz) / 2;
-        const ux = ((e.clientX - ox) / sz) * V, uy = ((e.clientY - oy) / sz) * V;
+        const { ux, uy } = toVB(e.clientX, e.clientY);
         const f = e.deltaY < 0 ? 1.2 : 1 / 1.2;
         setView((v) => {
           const z = Math.max(0.85, Math.min(16, v.z * f));
@@ -117,8 +130,8 @@ export default function IndiaMap({ lay, sel, onSel, hover, onHover, layers, onCu
         <radialGradient id="nradar"><stop offset="88%" stopColor="#a78bfa" stopOpacity="0" /><stop offset="100%" stopColor="#a78bfa" stopOpacity=".055" /></radialGradient>
       </defs>
 
-      <g transform={`translate(${view.x},${view.y}) scale(${view.z})`}>
-        <rect x={-V * 2} y={-V * 2} width={V * 5} height={V * 5} fill="url(#nsea)" />
+      <g transform={`translate(${view.x},${view.y}) scale(${view.z}) translate(${offX},${offY}) scale(${base})`}>
+        <rect x={-V * 4} y={-V * 4} width={V * 9} height={V * 9} fill="url(#nsea)" />
 
         {geo.countries.map((c) => (
           <path key={c.iso} d={c.d} fill={FILL[c.iso] ?? '#0e1310'} stroke={LINE[c.iso] ?? '#2b4038'}
@@ -174,16 +187,20 @@ export default function IndiaMap({ lay, sel, onSel, hover, onHover, layers, onCu
                 stroke="#a78bfa" strokeOpacity={on ? .55 : .13} strokeWidth={(on ? 1.4 : .8) * iz}
                 strokeDasharray={`${10 * iz} ${9 * iz}`} />
               <g transform={`translate(${PX(r.lon)},${PY(r.lat)}) scale(${iz})`}>
-                <path d="M-6,5 L0,-7 L6,5 Z" fill="none" stroke="#a78bfa" strokeWidth="1.3" />
-                <path d="M-9,5 h18" stroke="#a78bfa" strokeWidth="1.3" />
+                <g transform={`scale(${ICON})`}>
+                  <path d="M-6,5 L0,-7 L6,5 Z" fill="none" stroke="#a78bfa" strokeWidth="1.3" />
+                  <path d="M-9,5 h18" stroke="#a78bfa" strokeWidth="1.3" />
+                </g>
               </g>
             </g>
           );
         })}
 
         {/* ---------- SECTOR DOMES ---------- */}
-        {SECTORS.map((s) => {
+        {SECTORS.map((s, si) => {
           const on = selSector === s.id || hover === s.id;
+          // stagger vertical offset in dense clusters
+          const dy = on ? -15 : [-15, -24, -33, -24][si % 4];
           return (
             <g key={s.id} style={{ cursor: 'pointer' }}
               onMouseEnter={() => onHover(s.id)} onMouseLeave={() => onHover(null)}
@@ -192,10 +209,13 @@ export default function IndiaMap({ lay, sel, onSel, hover, onHover, layers, onCu
                 stroke="#38bdf8" strokeOpacity={on ? .9 : .5} strokeWidth={(on ? 2 : 1.2) * iz}
                 strokeDasharray={`${6 * iz} ${4 * iz}`} />
               <g transform={`translate(${PX(s.lon)},${PY(s.lat)}) scale(${iz})`}>
-                <path d="M-8,0 h16 M0,-8 v16" stroke="#38bdf8" strokeWidth="1.2" strokeOpacity=".9" />
-                <circle r="3" fill="none" stroke="#38bdf8" strokeWidth="1.3" />
-                <text y={-13} fill={on ? '#8fd8fb' : '#5ecbf9'} fontSize={on ? 13 : 11}
-                  textAnchor="middle" letterSpacing=".7" fontWeight={on ? 700 : 500}>
+                <g transform={`scale(${ICON})`}>
+                  <path d="M-8,0 h16 M0,-8 v16" stroke="#38bdf8" strokeWidth="1.2" strokeOpacity=".9" />
+                  <circle r="3" fill="none" stroke="#38bdf8" strokeWidth="1.3" />
+                </g>
+                <text y={dy * ICON} fill={on ? '#8fd8fb' : '#5ecbf9'} fontSize={(on ? 13 : 11) * ICON}
+                  textAnchor="middle" letterSpacing=".7" fontWeight={on ? 700 : 600}
+                  stroke="#040910" strokeWidth={3} paintOrder="stroke">
                   {s.name.toUpperCase()}
                 </text>
               </g>
@@ -222,11 +242,14 @@ export default function IndiaMap({ lay, sel, onSel, hover, onHover, layers, onCu
                   stroke={col} strokeOpacity=".08" strokeWidth={.7 * iz} strokeDasharray={`${2 * iz} ${9 * iz}`} />
               )}
               <g transform={`translate(${PX(b.lon)},${PY(b.lat)}) scale(${iz})`}>
-                <rect x="-5.5" y="-4" width="11" height="8" fill="#040910" stroke={col} strokeWidth={on ? 1.8 : 1.3} />
-                <path d="M-5.5,-4 L0,-9 L5.5,-4" fill="none" stroke={col} strokeWidth={on ? 1.8 : 1.3} />
-                {!b.active && <path d="M-8,-8 L8,8 M8,-8 L-8,8" stroke="#f43f5e" strokeWidth="1.8" />}
+                <g transform={`scale(${ICON})`}>
+                  <rect x="-5.5" y="-4" width="11" height="8" fill="#040910" stroke={col} strokeWidth={on ? 1.8 : 1.3} />
+                  <path d="M-5.5,-4 L0,-9 L5.5,-4" fill="none" stroke={col} strokeWidth={on ? 1.8 : 1.3} />
+                  {!b.active && <path d="M-8,-8 L8,8 M8,-8 L-8,8" stroke="#f43f5e" strokeWidth="1.8" />}
+                </g>
                 {(on || sectorOn) && (
-                  <text y="17" fill={col} fontSize="9.5" textAnchor="middle">{b.spec.name} {b.unit}</text>
+                  <text y={17 * ICON} fill={col} fontSize={10 * ICON} textAnchor="middle"
+                    stroke="#040910" strokeWidth={2.4} paintOrder="stroke">{b.spec.name} {b.unit}</text>
                 )}
               </g>
             </g>
@@ -235,17 +258,17 @@ export default function IndiaMap({ lay, sel, onSel, hover, onHover, layers, onCu
       </g>
 
       {/* fixed overlays */}
-      <g transform="translate(34,38)">
+      <g transform={`translate(38,42)`}>
         <path d="M0,-13 L4.3,6 L0,1.8 L-4.3,6 Z" fill="#4a6076" />
         <text y="18" fill="#4a6076" fontSize="8.5" textAnchor="middle">N</text>
       </g>
       {(() => {
         const target = 150;
-        const raw = target / (kmToPx * view.z);
+        const raw = target / (kmToPx * view.z * base);
         const nice = [50, 100, 200, 250, 500, 1000].reduce((a, b) => Math.abs(b - raw) < Math.abs(a - raw) ? b : a, 100);
-        const w = nice * kmToPx * view.z;
+        const w = nice * kmToPx * view.z * base;
         return (
-          <g transform={`translate(${V - w - 24},${V - 22})`}>
+          <g transform={`translate(${VW - w - 28},${VH - 24})`}>
             <line x1="0" y1="0" x2={w} y2="0" stroke="#5d7186" strokeWidth="1.4" />
             <line x1="0" y1="-4" x2="0" y2="4" stroke="#5d7186" strokeWidth="1.4" />
             <line x1={w} y1="-4" x2={w} y2="4" stroke="#5d7186" strokeWidth="1.4" />
@@ -253,13 +276,14 @@ export default function IndiaMap({ lay, sel, onSel, hover, onHover, layers, onCu
           </g>
         );
       })()}
-      <text x={V - 12} y="20" fill="#33546b" fontSize="9.5" textAnchor="end">ZOOM ×{view.z.toFixed(1)}</text>
+      <text x={VW - 14} y="22" fill="#33546b" fontSize="10.5" textAnchor="end">ZOOM ×{view.z.toFixed(1)}</text>
       {Math.abs(view.z - 1) > 0.02 && (
         <g style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setView({ x: 0, y: 0, z: 1 }); }}>
-          <rect x={V - 90} y={28} width="78" height="18" fill="#0e141c" stroke="#25455c" rx="2" />
-          <text x={V - 51} y={40.5} fill="#8fa8bd" fontSize="9" textAnchor="middle">RESET VIEW</text>
+          <rect x={VW - 94} y={30} width="80" height="19" fill="#0e141c" stroke="#25455c" rx="2" />
+          <text x={VW - 54} y={43} fill="#8fa8bd" fontSize="9.5" textAnchor="middle">RESET VIEW</text>
         </g>
       )}
     </svg>
+    </div>
   );
 }

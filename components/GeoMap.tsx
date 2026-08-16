@@ -3,6 +3,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import type { AllocationSolution, Scenario } from '@/lib/types';
 import { stateAt } from '@/lib/geometry';
 import { region } from '@/lib/theatre';
+import { useElementSize } from '@/lib/useElementSize';
 import { KM_LAT, kmLon } from '@/lib/scenario';
 import { ShieldIcon, BurstIcon, BatteryIcon, EngagementDefs, MissileBody, InterceptorBody, DroneIcon, launcherClassFor, COL } from './symbols';
 
@@ -49,6 +50,21 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
   const [view, setView] = useState({ x: 0, y: 0, z: 1 });
   const drag = useRef<{ sx: number; sy: number; vx: number; vy: number; moved: boolean } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const { ref: wrapRef, size } = useElementSize<HTMLDivElement>();
+
+  /* Build a viewBox matching the container's aspect ratio and fit the AOI
+   * inside it with a small margin. A fixed square viewBox letterboxed into a
+   * wide panel, shrinking everything and wasting horizontal space. */
+  const aspect = size.w / size.h;
+  const VW = aspect >= 1 ? V * aspect : V;
+  const VH = aspect >= 1 ? V : V / aspect;
+  const FIT = 0.94;
+  // Scale to the SHORTER axis so the whole AOI stays visible, then centre it
+  // in the longer axis. Sea/land tiles extend well beyond, so the extra width
+  // shows real surrounding geography rather than blank space.
+  const base = (Math.min(VW, VH) / V) * FIT;
+  const offX = (VW - V * base) / 2;
+  const offY = (VH - V * base) / 2;
 
   /* --------- projection: AOI window in lat/lon -> 0..V viewbox --------- */
   const { lat0, lon0, sizeKm } = sc.aoi;
@@ -76,14 +92,19 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
     };
   }, [PX, PY]);
 
-  const toLL = useCallback((cx: number, cy: number) => {
+  /** Client pixel -> viewBox units. */
+  const toVB = useCallback((cx: number, cy: number) => {
     const r = svgRef.current!.getBoundingClientRect();
-    const sz = Math.min(r.width, r.height);
-    const ox = r.left + (r.width - sz) / 2, oy = r.top + (r.height - sz) / 2;
-    const ux = ((cx - ox) / sz) * V, uy = ((cy - oy) / sz) * V;
-    const wx = (ux - view.x) / view.z, wy = (uy - view.y) / view.z;
+    return { ux: ((cx - r.left) / r.width) * VW, uy: ((cy - r.top) / r.height) * VH };
+  }, [VW, VH]);
+
+  const toLL = useCallback((cx: number, cy: number) => {
+    const { ux, uy } = toVB(cx, cy);
+    // undo pan/zoom, then the base fit transform
+    const wx = ((ux - view.x) / view.z - offX) / base;
+    const wy = ((uy - view.y) / view.z - offY) / base;
     return { lon: lon0 + (wx / V) * lonSpan, lat: lat0 + ((V - wy) / V) * latSpan };
-  }, [view, lat0, lon0, latSpan, lonSpan]);
+  }, [toVB, view, offX, offY, base, lat0, lon0, latSpan, lonSpan]);
 
   const live = useMemo(() => sc.threats.map((th) => {
     const active = t >= th.trajectory[0].t && t <= th.impact.t;
@@ -97,7 +118,11 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
   const selArea = new Set(sol?.selectedAreaIds ?? []);
   const selT = sel?.kind === 'threat' ? sel.id : null;
   const selS = sel?.kind === 'site' ? sel.id : null;
-  const iz = 1 / view.z;
+  /* Inverse scale for glyphs: cancels pan-zoom AND the base fit so icons keep
+   * a constant on-screen size. ICON is an extra multiplier to make vehicles
+   * and launchers physically larger and readable. */
+  const iz = 1 / (view.z * base);
+  const ICON = 1.55;
 
   // graticule at whole degrees
   const gridLines = useMemo(() => {
@@ -109,7 +134,8 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
   }, [lat0, lon0, latSpan, lonSpan]);
 
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${V} ${V}`} preserveAspectRatio="xMidYMid meet"
+    <div ref={wrapRef} style={{ width: '100%', height: '100%' }}>
+    <svg ref={svgRef} viewBox={`0 0 ${VW.toFixed(0)} ${VH.toFixed(0)}`} preserveAspectRatio="none"
       style={{ width: '100%', height: '100%', display: 'block', background: '#040910',
         cursor: addMode ? 'crosshair' : 'grab' }}
       onMouseDown={(e) => { if (!addMode) drag.current = { sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, moved: false }; }}
@@ -117,18 +143,14 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
         const p = toLL(e.clientX, e.clientY); onCursor?.(p);
         if (!drag.current) return;
         const r = svgRef.current!.getBoundingClientRect();
-        const sz = Math.min(r.width, r.height);
         if (Math.abs(e.clientX - drag.current.sx) + Math.abs(e.clientY - drag.current.sy) > 3) drag.current.moved = true;
-        setView((v) => ({ ...v, x: drag.current!.vx + ((e.clientX - drag.current!.sx) / sz) * V,
-                                 y: drag.current!.vy + ((e.clientY - drag.current!.sy) / sz) * V }));
+        setView((v) => ({ ...v, x: drag.current!.vx + ((e.clientX - drag.current!.sx) / r.width) * VW,
+                                 y: drag.current!.vy + ((e.clientY - drag.current!.sy) / r.height) * VH }));
       }}
       onMouseUp={() => { drag.current = null; }}
       onMouseLeave={() => { drag.current = null; onCursor?.(null); }}
       onWheel={(e) => {
-        const r = svgRef.current!.getBoundingClientRect();
-        const sz = Math.min(r.width, r.height);
-        const ox = r.left + (r.width - sz) / 2, oy = r.top + (r.height - sz) / 2;
-        const ux = ((e.clientX - ox) / sz) * V, uy = ((e.clientY - oy) / sz) * V;
+        const { ux, uy } = toVB(e.clientX, e.clientY);
         const f = e.deltaY < 0 ? 1.2 : 1 / 1.2;
         setView((v) => {
           const z = Math.max(0.75, Math.min(14, v.z * f));
@@ -148,8 +170,8 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
         <filter id="gl"><feGaussianBlur stdDeviation="2.6" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
       </defs>
 
-      <g transform={`translate(${view.x},${view.y}) scale(${view.z})`}>
-        <rect x={-V * 2} y={-V * 2} width={V * 5} height={V * 5} fill="url(#sea)" />
+      <g transform={`translate(${view.x},${view.y}) scale(${view.z}) translate(${offX},${offY}) scale(${base})`}>
+        <rect x={-V * 4} y={-V * 4} width={V * 9} height={V * 9} fill="url(#sea)" />
 
         {/* ---------- REAL COUNTRIES ---------- */}
         {geo.countries.map((c) => (
@@ -232,8 +254,8 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                 strokeOpacity={on ? .9 : .5} strokeWidth={(on ? 1.9 : 1.3) * iz}
                 strokeDasharray={`${7 * iz} ${5 * iz}`} />
               <g transform={`translate(${cx},${cy}) scale(${iz})`}>
-                <ShieldIcon s={a.primary ? 1.15 : 0.95} col={hit ? COL.threat : COL.asset} halo={a.primary} />
-                <text y={-19} fill={hit ? COL.threat : COL.asset} fontSize={a.primary ? 12.5 : 11}
+                <ShieldIcon s={(a.primary ? 1.25 : 1.05) * ICON} col={hit ? COL.threat : COL.asset} halo={a.primary} />
+                <text y={-19 * ICON} fill={hit ? COL.threat : COL.asset} fontSize={(a.primary ? 13.5 : 12) * ICON}
                   textAnchor="middle" letterSpacing=".8" fontWeight={a.primary ? 700 : 600}
                   stroke="#040910" strokeWidth="3" paintOrder="stroke">
                   {a.name.toUpperCase()}
@@ -271,7 +293,7 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
               <g transform={`translate(${cx},${cy}) scale(${iz})`}>
                 {/* launcher size scales with the class of system */}
                 <BatteryIcon
-                  s={a.maxSlantRange >= 150 ? 1.15 : a.maxSlantRange >= 60 ? 1.0 : 0.9}
+                  s={(a.maxSlantRange >= 150 ? 1.15 : a.maxSlantRange >= 60 ? 1.0 : 0.9) * ICON}
                   col={col} dead={!on} kind={launcherClassFor(a.maxSlantRange)} />
                 {on && used && (
                   <circle r={a.maxSlantRange >= 150 ? 15 : 12} fill="none" stroke={col}
@@ -279,9 +301,9 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                 )}
                 {(used || hi || !on) && (
                   <>
-                    <text y="-15" fill={col} fontSize="9.5" textAnchor="middle" fontWeight="600"
+                    <text y={-15 * ICON} fill={col} fontSize={10 * ICON} textAnchor="middle" fontWeight="600"
                       stroke="#040910" strokeWidth="2.8" paintOrder="stroke">{a.name}</text>
-                    <text y="21" fill={on ? '#5d7d96' : '#8a4550'} fontSize="8" textAnchor="middle"
+                    <text y={21 * ICON} fill={on ? '#5d7d96' : '#8a4550'} fontSize={8.5 * ICON} textAnchor="middle"
                       stroke="#040910" strokeWidth="2.6" paintOrder="stroke">
                       {on ? `${a.inventory} RDY · ${a.maxSlantRange}km` : 'OFFLINE'}
                     </text>
@@ -349,12 +371,12 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                   <g transform={`translate(${PX(st.p.lon)},${PY(st.p.lat)}) scale(${iz})`}>
                     <g transform={`rotate(${headingAt(th, t)})`}>
                       {th.cls === 'DRONE'
-                        ? <DroneIcon s={1.0} />
-                        : <MissileBody cls={th.cls} s={1.05} />}
+                        ? <DroneIcon s={1.0 * ICON} />
+                        : <MissileBody cls={th.cls} s={1.05 * ICON} />}
                     </g>
-                    <text x="15" y="-5" fill="#ffb3ba" fontSize="10.5"
+                    <text x={15 * ICON} y={-6 * ICON} fill="#ffb3ba" fontSize={11 * ICON}
                       stroke="#040910" strokeWidth="2.6" paintOrder="stroke">{th.callsign}</text>
-                    <text x="15" y="6" fill="#8a6268" fontSize="8.5"
+                    <text x={15 * ICON} y={6 * ICON} fill="#8a6268" fontSize={9 * ICON}
                       stroke="#040910" strokeWidth="2.4" paintOrder="stroke">
                       {th.cls} · {(st.p.alt / 1000).toFixed(0)}km · M{(st.speed / 340).toFixed(1)} → {th.targetAssetName}
                     </text>
@@ -365,7 +387,7 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
               {killed && first && (
                 <g filter="url(#glowSoft)"
                   transform={`translate(${PX(first.option.interceptPoint.lon)},${PY(first.option.interceptPoint.lat)}) scale(${iz})`}>
-                  <BurstIcon s={1.1} />
+                  <BurstIcon s={1.1 * ICON} />
                   {isSel && (
                     <text y="-17" fill={COL.burst} fontSize="8.5" textAnchor="middle">
                       DESTROYED {first.option.standoffFromAssetKm ?? '—'} km FROM ASSET
@@ -401,7 +423,7 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                     strokeDasharray={`${10 * iz} ${5 * iz}`} markerEnd="url(#arrowIntcp)" />
                   <g transform={`translate(${x0 + (x1 - x0) * f},${y0 + (y1 - y0) * f}) scale(${iz}) rotate(${
                     (Math.atan2(x1 - x0, y0 - y1) * 180) / Math.PI})`}>
-                    <InterceptorBody s={0.95} />
+                    <InterceptorBody s={0.95 * ICON} />
                   </g>
                 </>
               )}
@@ -414,17 +436,17 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
       </g>
 
       {/* ---------- FIXED OVERLAYS ---------- */}
-      <g transform="translate(36,40)">
+      <g transform={`translate(40,44)`}>
         <path d="M0,-14 L4.6,6.5 L0,2 L-4.6,6.5 Z" fill="#4a6076" />
         <text y="19" fill="#4a6076" fontSize="9" textAnchor="middle">N</text>
       </g>
       {(() => {
         const targetPx = 150;
-        const rawKm = (targetPx / (kmToPx * view.z));
+        const rawKm = (targetPx / (kmToPx * view.z * base));
         const nice = [10, 20, 25, 50, 100, 150, 200, 250, 500].reduce((a, b) => Math.abs(b - rawKm) < Math.abs(a - rawKm) ? b : a, 10);
-        const w = nice * kmToPx * view.z;
+        const w = nice * kmToPx * view.z * base;
         return (
-          <g transform={`translate(${V - w - 26},${V - 24})`}>
+          <g transform={`translate(${VW - w - 30},${VH - 26})`}>
             <line x1="0" y1="0" x2={w} y2="0" stroke="#5d7186" strokeWidth="1.5" />
             <line x1="0" y1="-4" x2="0" y2="4" stroke="#5d7186" strokeWidth="1.5" />
             <line x1={w} y1="-4" x2={w} y2="4" stroke="#5d7186" strokeWidth="1.5" />
@@ -432,18 +454,19 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
           </g>
         );
       })()}
-      <text x={V - 12} y="22" fill="#33546b" fontSize="10" textAnchor="end">ZOOM ×{view.z.toFixed(1)}</text>
+      <text x={VW - 14} y="24" fill="#33546b" fontSize="11" textAnchor="end">ZOOM ×{view.z.toFixed(1)}</text>
       {Math.abs(view.z - 1) > 0.02 && (
         <g style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setView({ x: 0, y: 0, z: 1 }); }}>
-          <rect x={V - 92} y={32} width="80" height="19" fill="#0e141c" stroke="#25455c" rx="2" />
-          <text x={V - 52} y={45} fill="#8fa8bd" fontSize="9.5" textAnchor="middle">RESET VIEW</text>
+          <rect x={VW - 96} y={34} width="82" height="20" fill="#0e141c" stroke="#25455c" rx="2" />
+          <text x={VW - 55} y={48} fill="#8fa8bd" fontSize="10" textAnchor="middle">RESET VIEW</text>
         </g>
       )}
       {addMode && (
-        <text x={V / 2} y="26" fill="#ffb020" fontSize="15" textAnchor="middle" letterSpacing="2">
+        <text x={VW / 2} y="28" fill="#ffb020" fontSize="16" textAnchor="middle" letterSpacing="2">
           SELECT AIMPOINT — CLICK MAP TO INJECT TRACK
         </text>
       )}
     </svg>
+    </div>
   );
 }
