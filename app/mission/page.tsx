@@ -5,6 +5,7 @@ import Nav from '@/components/Nav';
 import Timeline from '@/components/Timeline';
 import EventLog from '@/components/EventLog';
 import Inspector from '@/components/Inspector';
+import AnalysisTab from '@/components/AnalysisTab';
 import GeoMap, { type Sel } from '@/components/GeoMap';
 import { Pill, Bar } from '@/components/ui';
 import { MapLegend, COL, ThreatChip, IntcpChip, ShieldIcon } from '@/components/symbols';
@@ -12,10 +13,11 @@ import { useMission } from '@/lib/store';
 import { diagnoseSites } from '@/lib/diagnostics';
 import { clock } from '@/lib/format';
 
-type Tab = 'plan' | 'timeline' | 'log' | 'inspector';
+type Tab = 'plan' | 'analysis' | 'timeline' | 'log' | 'inspector';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'plan', label: 'Fire Plan' },
+  { id: 'analysis', label: 'Analysis' },
   { id: 'timeline', label: 'Mission Timeline' },
   { id: 'log', label: 'Event Log' },
   { id: 'inspector', label: 'Site Inspector' },
@@ -71,6 +73,7 @@ export default function MissionDetail() {
 
       <div style={{ minHeight: 0, overflow: 'hidden' }}>
         {tab === 'plan' && <FirePlan />}
+        {tab === 'analysis' && <AnalysisTab sc={sc} sol={sol} />}
         {tab === 'timeline' && <TimelineTab />}
         {tab === 'log' && <div style={{ height: '100%' }}><EventLog sc={sc} sol={sol} t={t} /></div>}
         {tab === 'inspector' && <InspectorTab />}

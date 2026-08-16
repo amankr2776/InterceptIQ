@@ -3,6 +3,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Particles, Shake } from '@/lib/fx';
 import {
+  setAudioEnabled, isAudioEnabled, sfxLaunch, sfxIntercept, sfxAlert, sfxJet,
+  sfxLock, startBed, stopBed,
+} from '@/lib/audio';
+import {
   drawBallistic, drawCruise, drawJet, drawDrone, drawInterceptor, drawTEL,
 } from '@/lib/vehicles';
 
@@ -48,8 +52,8 @@ const TRACKS: Track[] = [
   { id: 'T1', kind: 'ballistic', x0: 80,  y0: 330, x1: 1330, y1: 470, loft: 250, tIn: 2.2,  tCross: 4.6,  tKill: 12.2, by: 'S400',  label: 'SRBM · 700 kg HE',   scale: 1.5 },
   { id: 'T2', kind: 'ballistic', x0: 30,  y0: 520, x1: 1140, y1: 660, loft: 190, tIn: 3.0,  tCross: 5.2,  tKill: 13.6, by: 'S400',  label: 'MRBM · Mach 6.5',    scale: 1.35 },
   { id: 'T3', kind: 'cruise',    x0: 50,  y0: 782, x1: 1045, y1: 772, loft: 26,  tIn: 3.8,  tCross: 6.0,  tKill: 15.0, by: 'AKASH', label: 'CRUISE · terrain-hug', scale: 1.35 },
-  { id: 'T4', kind: 'drone',     x0: 60,  y0: 640, x1: 1050, y1: 700, loft: 40,  tIn: 6.4,  tCross: 8.2,  tKill: 16.4, by: 'AKASH', label: 'UAV · loitering',    scale: 1.2 },
-  { id: 'T5', kind: 'jet',       x0: 10,  y0: 890, x1: 1510, y1: 846, loft: 16,  tIn: 15.4, tCross: 16.6, tKill: 20.4, by: 'QRSAM', label: 'STRIKE AIRCRAFT',    scale: 1.45 },
+  { id: 'T4', kind: 'drone',     x0: 60,  y0: 640, x1: 1050, y1: 700, loft: 40,  tIn: 6.4,  tCross: 8.2,  tKill: 16.4, by: 'AKASH', label: 'SHAHPAR-II · UAV',   scale: 1.2 },
+  { id: 'T5', kind: 'jet',       x0: 10,  y0: 890, x1: 1510, y1: 846, loft: 16,  tIn: 15.4, tCross: 16.6, tKill: 20.4, by: 'QRSAM', label: 'JF-17 · low-level ingress', scale: 1.45 },
 ];
 
 const arcAt = (t: Track, u: number) => ({
@@ -74,11 +78,14 @@ export default function CinematicIntro({ onDone }: { onDone: () => void }) {
   const fired = useRef<Set<string>>(new Set());
   const blown = useRef<Set<string>>(new Set());
   const [phase, setPhase] = useState('SURVEILLANCE');
+  const [sound, setSound] = useState(false);
+  const cued = useRef<Set<string>>(new Set());
   const [clock, setClock] = useState(0);
   const [ended, setEnded] = useState(false);
 
   const finish = useCallback(() => {
     if (raf.current) cancelAnimationFrame(raf.current);
+    stopBed();
     onDone();
   }, [onDone]);
 
@@ -118,6 +125,21 @@ export default function CinematicIntro({ onDone }: { onDone: () => void }) {
         : t < 20.4 ? 'LOW-ALTITUDE PENETRATOR'
         : 'AIRSPACE SECURE'
       );
+
+      /* ---------- audio cues ---------- */
+      if (isAudioEnabled()) {
+        const cue = (k: string, at: number, fn: () => void) => {
+          if (t >= at && !cued.current.has(k)) { cued.current.add(k); fn(); }
+        };
+        for (const tr of TRACKS) {
+          cue(`x${tr.id}`, tr.tCross, sfxAlert);
+          if (tr.kind === 'jet') cue(`j${tr.id}`, tr.tIn + 0.4, () => sfxJet(4.2));
+          const b = BATTERIES.find((x) => x.id === tr.by)!;
+          cue(`c${tr.id}`, b.tLock, sfxLock);
+          cue(`l${tr.id}`, launchT(tr), () => sfxLaunch(tr.by === 'S400' ? 1.3 : 0.85));
+          cue(`k${tr.id}`, tr.tKill, () => sfxIntercept(tr.kind === 'jet' ? 1.15 : 0.95));
+        }
+      }
 
       /* ---------- frame persistence = motion blur ---------- */
       g.globalCompositeOperation = 'source-over';
@@ -411,6 +433,19 @@ export default function CinematicIntro({ onDone }: { onDone: () => void }) {
           </div>
         </div>
       )}
+
+      <button onClick={() => {
+        const v = !sound; setSound(v); setAudioEnabled(v);
+        if (v) startBed(); else stopBed();
+      }} style={{
+        position: 'absolute', left: 26, bottom: 26, padding: '11px 20px',
+        background: sound ? 'rgba(255,176,32,.14)' : 'rgba(6,12,20,.92)',
+        border: `1px solid ${sound ? '#ffb020' : '#2a4258'}`, borderRadius: 3,
+        color: sound ? '#ffb020' : '#8fa8bd', fontSize: 12, letterSpacing: '.16em',
+        cursor: 'pointer', fontFamily: 'ui-monospace, monospace', zIndex: 2,
+      }}>
+        {sound ? '♪ SOUND ON' : '♪ ENABLE SOUND'}
+      </button>
 
       <button onClick={finish} style={{
         position: 'absolute', right: 26, bottom: 26, padding: '11px 20px',

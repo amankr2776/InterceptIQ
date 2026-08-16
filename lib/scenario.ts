@@ -29,11 +29,16 @@ const LAYDOWN: Record<string, string[]> = {
   random: ['S400', 'AAD', 'MRSAM', 'AKASH', 'AKASH', 'QRSAM', 'SPYDER', 'MRSAM', 'PECHORA'],
 };
 
+/* Threat mix per tier. Harder tiers add manned strike aircraft, which ingress
+ * low and fast and are a point-defence problem rather than an area-defence
+ * one — they exercise a different layer of the network than ballistic tracks. */
 const THREAT_MIX: Record<string, string[]> = {
   easy:   ['ABDALI', 'GHAZNAVI', 'LOITER'],
-  medium: ['ABDALI', 'GHAZNAVI', 'BABUR', 'GHAURI', 'SHAHPAR'],
-  hard:   ['ABDALI', 'GHAZNAVI', 'BABUR', 'GHAURI', 'SHAHEEN2', 'SHAHPAR', 'LOITER'],
-  random: ['ABDALI', 'GHAZNAVI', 'BABUR', 'GHAURI', 'SHAHEEN2', 'SHAHPAR', 'LOITER'],
+  medium: ['ABDALI', 'GHAZNAVI', 'BABUR', 'GHAURI', 'SHAHPAR', 'JF17'],
+  hard:   ['ABDALI', 'GHAZNAVI', 'BABUR', 'GHAURI', 'SHAHEEN2', 'SHAHPAR',
+           'LOITER', 'JF17', 'F16', 'J10', 'SU30'],
+  random: ['ABDALI', 'GHAZNAVI', 'BABUR', 'GHAURI', 'SHAHEEN2', 'SHAHPAR',
+           'LOITER', 'JF17', 'J10'],
 };
 
 const TIER: Record<string, { threats: [number, number]; areas: [number, number] }> = {
@@ -83,7 +88,7 @@ function propagate(
     });
   };
 
-  if (spec.cls === 'CRUISE' || spec.cls === 'DRONE') {
+  if (spec.cls === 'CRUISE' || spec.cls === 'DRONE' || spec.cls === 'AIRCRAFT') {
     const cruiseAlt = rng.range(spec.apogeeKm[0], spec.apogeeKm[1]) * 1000;
     const v = spec.terminalSpeedMs;
     /* Time compression for long standoff ingress. The geometry (where it was

@@ -10,6 +10,14 @@ export function ThreatSymbol({ cls, size = 13, color = COL.threat, filled = true
   { cls: string; size?: number; color?: string; filled?: boolean }) {
   const fill = filled ? color : 'none';
   const common = { fill, stroke: color, strokeWidth: 1.6, strokeLinejoin: 'round' as const };
+  if (cls === 'AIRCRAFT') {
+    return (
+      <svg width={size} height={size} viewBox="-13 -13 26 26">
+        <path d="M0,-10 L3,-3 L11,3 L11,5 L3,2 L3,7 L6,10 L6,11 L0,9.5 L-6,11 L-6,10 L-3,7 L-3,2 L-11,5 L-11,3 L-3,-3 Z"
+          {...common} />
+      </svg>
+    );
+  }
   if (cls === 'DRONE') {
     return (
       <svg width={size} height={size} viewBox="0 0 20 20">

@@ -110,6 +110,7 @@ export function BatteryIcon({ s = 1, col = COL.intcp, dead = false, kind = 'medi
 /** Threat track symbol by class (simplified NATO-style, kept for legends). */
 export function symbolPath(cls: string): string {
   switch (cls) {
+    case 'AIRCRAFT': return 'M0,-10 L3,-3 L11,3 L11,5 L3,2 L3,7 L6,10 L6,11 L0,9.5 L-6,11 L-6,10 L-3,7 L-3,2 L-11,5 L-11,3 L-3,-3 Z';
     case 'CRUISE': return 'M0,-9 L8,8 L0,4 L-8,8 Z';
     case 'TBM': return 'M0,-9 L8.5,8 L-8.5,8 Z';
     case 'MRBM': return 'M0,-9 L9,0 L0,9 L-9,0 Z';

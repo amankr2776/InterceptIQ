@@ -210,7 +210,7 @@ export default function Overview() {
         <main style={{ position: 'relative', minWidth: 0, minHeight: 0 }}>
           <GeoMap sc={sc} sol={sol} t={t} sel={sel} onSel={setSel} addMode={addMode}
             onMapClick={(lat, lon) => { addThreat(lat, lon); setAddMode(false); }}
-            layers={layers} onCursor={setCursor} />
+            layers={layers} onCursor={setCursor} fx playing={playing} />
 
           {/* persistent legend — always visible */}
           <div style={{ position: 'absolute', top: 10, left: 10 }}>

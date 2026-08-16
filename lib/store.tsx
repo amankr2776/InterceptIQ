@@ -4,7 +4,10 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { generateScenario } from './scenario';
 import { allocate, allocateMinimalSet } from './allocator';
 import { injectThreat } from './inject';
-import { setAudioEnabled, sfxLaunch, sfxIntercept, sfxImpact, sfxAlert } from './audio';
+import {
+  setAudioEnabled, sfxLaunch, sfxIntercept, sfxImpact, sfxAlert, sfxLock, sfxJet,
+  startBed, stopBed,
+} from './audio';
 import type { AllocationSolution, Scenario } from './types';
 import { solveAllModes, solveMode, type Mode, type ModeResult } from './compare';
 
@@ -120,7 +123,10 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     setFlash(`${r.label.toUpperCase()} — ${r.total - r.leakers}/${r.total} stopped, ${r.sitesUsed} site(s)`);
   }, [sc, results]);
 
-  const setAudio = useCallback((v: boolean) => { setAudioState(v); setAudioEnabled(v); }, []);
+  const setAudio = useCallback((v: boolean) => {
+    setAudioState(v); setAudioEnabled(v);
+    if (v) startBed(); else stopBed();
+  }, []);
 
   const jumpToFirstEngagement = useCallback(() => {
     if (!sol?.shots.length) return;
@@ -158,14 +164,24 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     for (const th of sc.threats) {
       if (th.borderCrossT !== null && t >= th.borderCrossT && t < th.borderCrossT + 3)
         fire(`x${th.id}`, sfxAlert);
+      // manned aircraft get an audible flyby as they cross
+      if (th.cls === 'AIRCRAFT' && th.borderCrossT !== null &&
+          t >= th.borderCrossT && t < th.borderCrossT + 3)
+        fire(`j${th.id}`, () => sfxJet(3.6));
       const r = sol.perThreat.find((p) => p.threatId === th.id);
       if (r?.leaker && t >= th.impact.t && t < th.impact.t + 3) fire(`i${th.id}`, sfxImpact);
     }
     for (const s of sol.shots) {
+      const a = sc.areas.find((x) => x.id === s.areaId);
+      // heavier systems get a weightier launch signature
+      const power = a ? (a.maxSlantRange >= 150 ? 1.25 : a.maxSlantRange >= 60 ? 1.0 : 0.8) : 1;
+      if (t >= s.option.tLaunch - 2.2 && t < s.option.tLaunch - 1.9)
+        fire(`c${s.areaId}${s.threatId}${s.salvoIndex}`, sfxLock);
       if (t >= s.option.tLaunch && t < s.option.tLaunch + 3)
-        fire(`l${s.areaId}${s.threatId}${s.salvoIndex}`, sfxLaunch);
+        fire(`l${s.areaId}${s.threatId}${s.salvoIndex}`, () => sfxLaunch(power));
       if (t >= s.option.tIntercept && t < s.option.tIntercept + 3)
-        fire(`k${s.areaId}${s.threatId}${s.salvoIndex}`, sfxIntercept);
+        fire(`k${s.areaId}${s.threatId}${s.salvoIndex}`,
+          () => sfxIntercept(s.option.interceptAltM > 20000 ? 0.7 : 1.0));
     }
   }, [t, audio, sc, sol, mode]);
   useEffect(() => { if (sc) setMode(minimise ? 'minimal' : 'layered'); /* eslint-disable-next-line */ }, [minimise]);

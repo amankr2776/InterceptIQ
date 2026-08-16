@@ -286,6 +286,43 @@ export const THREATS: ThreatSpec[] = [
     warheadKg: 500, guidance: 'INS, terminal manoeuvring',
     cepM: 150, source: 'Open-source (CSIS Missile Threat)',
   },
+  /* ---- Manned combat aircraft on strike profiles ----
+   * Types operated by regional air arms, with published open-source figures.
+   * Modelled at low-level ingress speed, not maximum dash. */
+  {
+    id: 'JF17', name: 'JF-17 Thunder', cls: 'AIRCRAFT',
+    category: 'Single-engine multirole fighter (PAF / CAC)',
+    rangeKm: [900, 1350], apogeeKm: [0.15, 9], mach: 1.6,
+    terminalSpeedMs: 300, warheadKg: 3600,
+    guidance: 'Pilot + KLJ-7 radar; stand-off PGM and anti-radiation loadout',
+    cepM: null, source: 'Open-source (PAC/CAC published data, IISS Military Balance)',
+    note: 'Backbone PAF type. Low-level ingress makes it a point-defence problem.',
+  },
+  {
+    id: 'F16', name: 'F-16 Fighting Falcon', cls: 'AIRCRAFT',
+    category: 'Single-engine multirole fighter',
+    rangeKm: [1300, 1800], apogeeKm: [0.15, 12], mach: 2.0,
+    terminalSpeedMs: 330, warheadKg: 7700,
+    guidance: 'Pilot + AN/APG-68 radar; stand-off PGM',
+    cepM: null, source: 'Open-source (Lockheed Martin published data)',
+  },
+  {
+    id: 'J10', name: 'J-10C Vigorous Dragon', cls: 'AIRCRAFT',
+    category: 'Single-engine multirole fighter (PLAAF)',
+    rangeKm: [1240, 1850], apogeeKm: [0.2, 13], mach: 1.8,
+    terminalSpeedMs: 320, warheadKg: 5600,
+    guidance: 'Pilot + AESA radar; PL-15 / stand-off munitions',
+    cepM: null, source: 'Open-source (IISS Military Balance)',
+  },
+  {
+    id: 'SU30', name: 'Su-30 class', cls: 'AIRCRAFT',
+    category: 'Twin-engine heavy multirole fighter',
+    rangeKm: [1500, 3000], apogeeKm: [0.2, 14], mach: 2.0,
+    terminalSpeedMs: 340, warheadKg: 8000,
+    guidance: 'Pilot + PESA radar; heavy stand-off loadout',
+    cepM: null, source: 'Open-source (IISS Military Balance)',
+    note: 'Heaviest strike payload in the regional inventory.',
+  },
   {
     id: 'SHAHPAR', name: 'Shahpar-II class', cls: 'DRONE',
     category: 'Medium-altitude long-endurance armed UAV',

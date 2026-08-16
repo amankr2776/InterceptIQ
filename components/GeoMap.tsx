@@ -6,8 +6,9 @@ import { stateAt } from '@/lib/geometry';
 import { region } from '@/lib/theatre';
 import { batteryStatuses, type BatteryState } from '@/lib/alert';
 import { useElementSize } from '@/lib/useElementSize';
+import FxLayer from './FxLayer';
 import { KM_LAT, kmLon } from '@/lib/scenario';
-import { ShieldIcon, BurstIcon, BatteryIcon, EngagementDefs, MissileBody, InterceptorBody, DroneIcon, launcherClassFor, COL } from './symbols';
+import { ShieldIcon, BurstIcon, BatteryIcon, EngagementDefs, MissileBody, InterceptorBody, DroneIcon, launcherClassFor, symbolPath, COL } from './symbols';
 
 export type Sel =
   | { kind: 'threat'; id: string }
@@ -21,6 +22,9 @@ interface Props {
   addMode: boolean; onMapClick: (lat: number, lon: number) => void;
   layers: Record<string, boolean>;
   onCursor?: (c: { lat: number; lon: number } | null) => void;
+  /** Enable the particle effects overlay (motor plumes, detonations). */
+  fx?: boolean;
+  playing?: boolean;
 }
 
 const V = 1000;
@@ -48,7 +52,7 @@ const NEIGHBOUR_LINE: Record<string, string> = {
   BTN: '#2b4038', BGD: '#284048', LKA: '#2b4038', MMR: '#284048', AFG: '#4a2f38',
 };
 
-export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, layers, onCursor }: Props) {
+export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, layers, onCursor, fx = false, playing = false }: Props) {
   const [view, setView] = useState({ x: 0, y: 0, z: 1 });
   const drag = useRef<{ sx: number; sy: number; vx: number; vy: number; moved: boolean } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -108,6 +112,17 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
     return { lon: lon0 + (wx / V) * lonSpan, lat: lat0 + ((V - wy) / V) * latSpan };
   }, [toVB, view, offX, offY, base, lat0, lon0, latSpan, lonSpan]);
 
+  /* lat/lon -> pixel inside the wrapper, matching exactly what the SVG draws.
+   * The FX canvas is the same size as the wrapper, so effects register with
+   * the vector geometry at any pan/zoom. */
+  const projectPx = useCallback((lat: number, lon: number) => {
+    if (!size.w || !size.h) return null;
+    const vx = PX(lon), vy = PY(lat);
+    const wx = (vx * base + offX) * view.z + view.x;   // viewBox units
+    const wy = (vy * base + offY) * view.z + view.y;
+    return { x: (wx / VW) * size.w, y: (wy / VH) * size.h };
+  }, [PX, PY, base, offX, offY, view, VW, VH, size.w, size.h]);
+
   const live = useMemo(() => sc.threats.map((th) => {
     const active = t >= th.trajectory[0].t && t <= th.impact.t;
     const st = stateAt(th, Math.min(t, th.impact.t));
@@ -143,7 +158,7 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
   }, [lat0, lon0, latSpan, lonSpan]);
 
   return (
-    <div ref={wrapRef} style={{ width: '100%', height: '100%' }}>
+    <div ref={wrapRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
     <svg ref={svgRef} viewBox={`0 0 ${VW.toFixed(0)} ${VH.toFixed(0)}`} preserveAspectRatio="none"
       style={{ width: '100%', height: '100%', display: 'block', background: '#040910',
         cursor: addMode ? 'crosshair' : 'grab' }}
@@ -408,6 +423,10 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                     <g transform={`rotate(${headingAt(th, t)})`}>
                       {th.cls === 'DRONE'
                         ? <DroneIcon s={1.0 * ICON} />
+                        : th.cls === 'AIRCRAFT'
+                        ? <path d={symbolPath('AIRCRAFT')} transform={`scale(${1.15 * ICON})`}
+                            fill={COL.threat} fillOpacity=".9" stroke="#ffd7dc" strokeWidth="1.1"
+                            strokeLinejoin="round" />
                         : <MissileBody cls={th.cls} s={1.05 * ICON} />}
                     </g>
                     <text x={15 * ICON} y={-6 * ICON} fill="#ffb3ba" fontSize={11 * ICON}
@@ -517,6 +536,10 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
         </text>
       )}
     </svg>
+    {fx && size.w > 0 && (
+      <FxLayer sc={sc} sol={sol} t={t} playing={playing}
+        project={projectPx} width={Math.round(size.w)} height={Math.round(size.h)} />
+    )}
     </div>
   );
 }
