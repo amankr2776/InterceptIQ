@@ -412,6 +412,7 @@ Every one of these was a **real bug, found by measurement**:
 | Point defence sited **417 km** from the asset it defends | battery-to-asset distance audit | the siting solver could relax standoff without limit to satisfy soil/dispersion, putting a 45 km Akash far outside its own reach of Delhi |
 | 3 of 32 threat systems **never appeared in any scenario** | roster-coverage sweep | the standoff band was computed as `max(min*0.45,120)..min(max,900)`, which INVERTS at both extremes — DF-26 got 1350..900 and Nasr got 120..70, so no bearing could ever satisfy it |
 | HGV tracks **originating inside PoK** | territory audit on the new class | the lateral weave displaced the first sample sideways across the frontier *after* the launch point had been validated on the straight line |
+| `FIRING IN 10s` printed **once per shot**, stacking 6 identical captions on one pixel | label-overlap sweep during the declutter pass | the arming indicator lived inside the per-shot loop; a salvo from one launcher shares a single `tLaunch`, so every round drew its own copy — 36 overlapping pairs in a single frame, all self-inflicted |
 | A battery sited **strictly inside Bangladesh** | off-soil vertex audit | the 2 km coastal tolerance band is blind to *which* side of the frontier it reaches across; it now refuses any point strictly inside a neighbour |
 | India drawn with the **wrong northern border** | boundary bbox check | bundled geometry topped out at 35.5°N, cutting off northern J&K, and used the UN rather than the India point of view |
 | Lakshadweep silently deleted | reference-point test (Kavaratti "not India") | island rings below an area threshold were dropped as specks |
@@ -429,6 +430,14 @@ Every one of these was a **real bug, found by measurement**:
   ✓ border in radar cover   100.0 %      ✓ console errors           0
   ✓ border in SAM envelope  100.0 %      ✓ min separation     7.1 km
   ✓ threat roster exercised  32/32       ✓ tracks not crossing border 0
+```
+
+**Presentation density** (hard tier, 22 sampled frames):
+
+```
+  range rings drawn by default      0.00 / frame   (toggle or hover to reveal)
+  on-map text labels                19   / frame   (was 26)
+  substantial label overlaps        22   total     (was 792 — 97% reduction)
 ```
 
 Every one of the 12 threat classes is neutralised 100% of the time, with physically sensible

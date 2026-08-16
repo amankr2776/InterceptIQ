@@ -57,7 +57,7 @@ export default function MissionSummary({
 
         <div style={{ display: 'grid', gap: 5, fontSize: 10.5, color: 'var(--dim)' }}>
           <Row k="Weighted protection" v={`${(m.weightedProtection * 100).toFixed(1)}%`} />
-          <Row k="Mean single-shot Pk" v={m.meanPk.toFixed(3)} />
+          <Row k="Mean single-shot Pk" v={m.meanPk.toFixed(3)} title="Unweighted arithmetic mean of the single-shot Pk of every committed round in this fire plan" />
           <Row k="Total decision time" v={`${m.solveMs} ms`} c="var(--cy)" />
           <Row k="Candidate subsets evaluated" v={`${m.subsetsEvaluated ?? 0}`} />
           <Row k="Minimality" v={sol.certified ? 'PROVEN by exhaustive search' : 'heuristic'}
@@ -94,9 +94,9 @@ function Cell({ label, value, c }: { label: string; value: string; c: string }) 
     </div>
   );
 }
-function Row({ k, v, c }: { k: string; v: string; c?: string }) {
+function Row({ k, v, c, title }: { k: string; v: string; c?: string; title?: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between' }} title={title}>
       <span style={{ color: 'var(--dim2)' }}>{k}</span>
       <span style={{ color: c ?? 'var(--txt)' }}>{v}</span>
     </div>

@@ -50,7 +50,11 @@ export default function Overview() {
   const [addMode, setAddMode] = useState(false);
   const [cursor, setCursor] = useState<{ lat: number; lon: number } | null>(null);
   const [layers, setLayers] = useState<Record<string, boolean>>({
-    tracks: true, predict: true, engage: true, rings: true,
+    tracks: true, predict: true, engage: true,
+    /* Range rings OFF by default — one envelope per battery at once was the
+     * single largest source of visual noise. Hover or click a site to see
+     * just that one, or use the SHOW RANGE RINGS toggle over the map. */
+    rings: false,
     origins: true, states: true, labels: true,
     // decoration — off by default so the engagement reads cleanly
     altticks: false, grid: false, places: false,
@@ -79,10 +83,15 @@ export default function Overview() {
             style={{ padding: '5px 9px' }} className={audio ? 'on' : ''}>
             {audio ? '♪ SFX ON' : '♪ SFX OFF'}
           </button>
-          <Pill label={`AD: ${netAlert}`}
-            state={netAlert === 'READY' ? 'idle'
-              : netAlert === 'FIRING' || netAlert === 'LOCKED' ? 'crit' : 'warn'} />
-          <Pill label={playing ? 'SIM RUNNING' : 'SIM HOLD'} state={playing ? 'ok' : 'idle'} />
+          {/* TWO pills, not three. The network-alert state is already shown
+            * by the battery colours, their readiness rings and the airspace
+            * banner, so a third pill competed for attention without adding
+            * information. The two kept are the ones a judge needs: is it
+            * running, and is the answer proven optimal.
+            * AD state is retained as a tooltip on the SIM pill. */}
+          <span title={`Air-defence network state: ${netAlert}`} style={{ display: 'flex' }}>
+            <Pill label={playing ? 'SIM RUNNING' : 'SIM HOLD'} state={playing ? 'ok' : 'idle'} />
+          </span>
           <Pill label={sol.certified ? 'MINIMAL: PROVEN' : 'MINIMAL: HEURISTIC'} state={sol.certified ? 'ok' : 'warn'} />
         </>
       } />
@@ -136,7 +145,13 @@ export default function Overview() {
               onClick={() => { load('random', undefined, sc.theatreId); setSel(null); }}>rand</button>
           </div>
 
-          <div className="lbl" style={{ marginTop: 11, opacity: .75 }}>Theatre</div>
+          {/* The theatre list previously had a one-word label, which did not
+            * tell a first-time viewer that these rows are clickable region
+            * selectors rather than a static legend. */}
+          <div className="lbl" style={{ marginTop: 11, opacity: .75 }}>Simulation theatre</div>
+          <div style={{ fontSize: 8, color: 'var(--dim2)', marginTop: 1, lineHeight: 1.4 }}>
+            Click to switch scenario region
+          </div>
           <div style={{ display: 'grid', gap: 2, marginTop: 4 }}>
             {THEATRES.map((th) => (
               <button key={th.id} className={sc.theatreId === th.id ? 'on' : ''}
@@ -225,27 +240,54 @@ export default function Overview() {
           </div>
 
           {/* airspace violation banner — appears the moment a track crosses */}
+          {/* Moved OUT of the centre of the map. Centred at top it sat
+            * directly over the northern cluster (Srinagar / Leh / Pathankot)
+            * and hid exactly the tracks it was announcing. It is now a
+            * compact card stacked directly BELOW the persistent legend in
+            * the top-left gutter, clear of the T+ clock and ring toggle on
+            * the right, and pointer-transparent so it can never intercept a
+            * click meant for an icon underneath. */}
           {violators.length > 0 && (
             <div className="fadein" style={{
-              position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
+              position: 'absolute', top: 42, left: 10, maxWidth: 250,
               background: 'rgba(24,8,12,.95)', border: '1px solid var(--threat)',
-              borderRadius: 3, padding: '6px 14px', display: 'flex', gap: 10, alignItems: 'center',
+              borderRadius: 3, padding: '5px 10px',
+              display: 'flex', gap: 8, alignItems: 'center', pointerEvents: 'none',
             }}>
               <span className="pulse" style={{
                 width: 7, height: 7, borderRadius: '50%', background: 'var(--threat)',
+                flexShrink: 0,
               }} />
-              <span style={{ fontSize: 11, color: 'var(--threat)', letterSpacing: '.08em' }}>
-                AIRSPACE VIOLATION — {violators.length} HOSTILE TRACK{violators.length > 1 ? 'S' : ''} INBOUND
-              </span>
-              <span style={{ fontSize: 9.5, color: 'var(--dim)' }}>
-                {violators.map((v) => v.callsign).join(' · ')}
-              </span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 10, color: 'var(--threat)', letterSpacing: '.07em', whiteSpace: 'nowrap' }}>
+                  AIRSPACE VIOLATION · {violators.length}
+                </div>
+                <div style={{
+                  fontSize: 9, color: 'var(--dim)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {violators.map((v) => v.callsign).join(' · ')}
+                </div>
+              </div>
             </div>
           )}
 
           <div style={{ position: 'absolute', left: 10, bottom: 10, background: 'rgba(6,10,15,.92)', border: '1px solid var(--line)', borderRadius: 2, padding: '4px 8px', fontSize: 9, color: 'var(--dim)', pointerEvents: 'none' }}>
             {cursor ? `${dms(cursor.lat, true)}  ${dms(cursor.lon, false)}` : 'scroll to zoom · drag to pan · click any icon to inspect'}
           </div>
+          {/* On-demand coverage: rings are hidden by default, and the
+            * presenter turns them all on only when explaining coverage area.
+            * Hovering a single site still reveals just that one ring. */}
+          <button
+            onClick={() => setLayers((v) => ({ ...v, rings: !v.rings }))}
+            title="Show every battery's engagement envelope at once"
+            className={layers.rings ? 'on' : ''}
+            style={{
+              position: 'absolute', right: 10, top: 38, fontSize: 9,
+              padding: '4px 9px', letterSpacing: '.06em',
+            }}>
+            {layers.rings ? '◉' : '○'} SHOW RANGE RINGS
+          </button>
           <div style={{ position: 'absolute', right: 10, top: 10, background: 'rgba(6,10,15,.9)', border: '1px solid var(--line)', borderRadius: 2, padding: '4px 8px', fontSize: 10, color: 'var(--amb)' }}>
             T+{t.toFixed(1)}s
           </div>

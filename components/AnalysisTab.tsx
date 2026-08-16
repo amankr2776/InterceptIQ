@@ -74,7 +74,7 @@ export default function AnalysisTab({ sc, sol }: { sc: Scenario; sol: Allocation
         <Metric label="Subsets tested" v={`${sol.metrics.subsetsEvaluated ?? trace.length}`}
           sub={sol.certified ? 'exhaustive' : 'heuristic'} c="var(--vio)" />
         <Metric label="Decision time" v={`${sol.metrics.solveMs} ms`} sub="full re-solve" c="var(--amb)" />
-        <Metric label="Mean single-shot Pk" v={sol.metrics.meanPk.toFixed(3)}
+        <Metric label="Mean single-shot Pk (unweighted)" v={sol.metrics.meanPk.toFixed(3)}
           sub={`${sol.metrics.interceptorsUsed} rounds`} c={COL.burst} />
         <Metric label="Weighted protection" v={`${(sol.metrics.weightedProtection * 100).toFixed(1)}%`}
           sub={`baseline ${((sol.baselineProtection ?? 0) * 100).toFixed(1)}%`} c={COL.burst} />

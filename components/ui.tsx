@@ -26,12 +26,33 @@ export function Num({
   return <span style={style}>{prefix}{d.toFixed(decimals)}{suffix}</span>;
 }
 
+/**
+ * Status pill.
+ *
+ * Sized for PRESENTATION DISTANCE, not for a desk. During a live demo a judge
+ * reads these from several feet away, so the text is 11px (was 9), the status
+ * dot is 8px with a matching halo (was a flat 5px), and the border/background
+ * carry far more of the state colour so the pill reads as red/amber/green
+ * before any word is actually parsed.
+ */
 export function Pill({ label, state }: { label: string; state: 'ok' | 'warn' | 'crit' | 'idle' }) {
   const c = state === 'ok' ? 'var(--grn)' : state === 'warn' ? 'var(--amb)' : state === 'crit' ? 'var(--red)' : 'var(--dim2)';
+  const live = state !== 'idle';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', border: `1px solid ${c}33`, borderRadius: 2, background: `${c}0d` }}>
-      <span className={state === 'crit' ? 'pulse' : ''} style={{ width: 5, height: 5, borderRadius: '50%', background: c, display: 'inline-block' }} />
-      <span style={{ fontSize: 9, letterSpacing: '.1em', color: c }}>{label}</span>
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 7, padding: '4px 10px',
+      border: `1px solid ${live ? c + '88' : c + '44'}`, borderRadius: 3,
+      background: live ? `${c}1f` : `${c}0d`,
+    }}>
+      <span className={state === 'crit' ? 'pulse' : ''} style={{
+        width: 8, height: 8, borderRadius: '50%', background: c,
+        display: 'inline-block', flexShrink: 0,
+        boxShadow: live ? `0 0 6px ${c}` : 'none',
+      }} />
+      <span style={{
+        fontSize: 11, letterSpacing: '.09em', color: c,
+        fontWeight: live ? 600 : 500, whiteSpace: 'nowrap',
+      }}>{label}</span>
     </div>
   );
 }

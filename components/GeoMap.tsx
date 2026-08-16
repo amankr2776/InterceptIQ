@@ -85,6 +85,12 @@ const NEIGHBOUR_LINE: Record<string, string> = {
 
 export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, layers, onCursor, fx = false, playing = false }: Props) {
   const [view, setView] = useState({ x: 0, y: 0, z: 1 });
+  /* Site under the cursor. Drives the on-demand range ring and the detail
+   * text, so neither has to be rendered for every battery at once. */
+  const [hovSite, setHovSite] = useState<string | null>(null);
+  /* Threat track under the cursor — reveals the full weapon name, which is
+   * otherwise held back to keep the map readable. */
+  const [hovThreat, setHovThreat] = useState<string | null>(null);
   const drag = useRef<{ sx: number; sy: number; vx: number; vy: number; moved: boolean } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const { ref: wrapRef, size } = useElementSize<HTMLDivElement>();
@@ -167,6 +173,8 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
    * committed to it. Rounds arriving later are wasted and must be destructed
    * rather than drawn flying at a dead target. */
   const killT = useMemo(() => killTimes(sol), [sol]);
+  /** Scratch: batteryId -> index of the one shot that owns the arming caption. */
+  const armingLead = useRef(new Map<string, number>()).current;
 
   const selArea = new Set(sol?.selectedAreaIds ?? []);
   /* Live readiness per battery — READY / ALERT / TRACKING / LOCKED / FIRING.
@@ -227,10 +235,14 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
       out.set(id, dy / iz);
     };
 
-    // 1. live attacker labels — the headline information
+    /* 1. live attacker labels — the headline information.
+     * Box height reflects what is ACTUALLY drawn: one line (track ID) by
+     * default, two on hover, three when selected. Reserving three lines for
+     * every track would push neighbours apart for text that is not there. */
     for (const { th, st, active, killed } of live) {
       if (!active || !st || killed) continue;
-      put('t:' + th.id, PX(st.p.lon), PY(st.p.lat), -12 * ICON, 11 * ICON);
+      const lines = selT === th.id ? 3 : hovThreat === th.id ? 2 : 1;
+      put('t:' + th.id, PX(st.p.lon), PY(st.p.lat), -12 * ICON, (-1 + lines * 11) * ICON);
     }
     // 2. defended assets
     for (const a of sc.assets) {
@@ -242,11 +254,16 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
       const s2 = statusById.get(a.id)?.state ?? 'READY';
       const reacting = s2 === 'ALERT' || s2 === 'TRACKING' || s2 === 'LOCKED' || s2 === 'FIRING';
       if (!(selArea.has(a.id) || selS === a.id || !a.active || reacting)) continue;
-      // stack runs from the readiness caption (-27) down past the inventory line
-      put("b:" + a.id, PX(a.centroid.lon), PY(a.centroid.lat), -42, 24 * ICON);
+      /* Stack runs from the readiness caption above the icon down to the
+       * inventory line — but the inventory line is only drawn when this site
+       * is focused or offline, so the box shrinks accordingly. */
+      const detail = selS === a.id || hovSite === a.id || !a.active;
+      put("b:" + a.id, PX(a.centroid.lon), PY(a.centroid.lat),
+        -42, (detail ? 24 : 6) * ICON);
     }
     return out;
-  }, [live, sc.areas, sc.assets, statusById, selArea, selS, PX, PY, iz, ICON]);
+  }, [live, sc.areas, sc.assets, statusById, selArea, selS, selT,
+      hovSite, hovThreat, PX, PY, iz, ICON]);
 
 
   // graticule at whole degrees
@@ -409,19 +426,45 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
             : stName === 'FIRING' ? COL.intcp : COL.intcp;
           const col = !on ? '#6b2f3d' : active ? stCol : used ? COL.intcp : '#3c5b74';
           const cx = PX(a.centroid.lon), cy = PY(a.centroid.lat);
-          const showRing = layers.rings && (used || hi || !on);
+          /* RANGE RINGS ARE OFF BY DEFAULT.
+           * Drawing an envelope for every battery at once buried the tracks
+           * under concentric circles. A ring now appears only when the
+           * presenter explicitly asks for it — either the global toggle, or
+           * this one site being hovered or selected. */
+          const focused = hi || hovSite === a.id;
+          const showRing = layers.rings || focused;
           return (
-            <g key={a.id} style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); if (!drag.current?.moved) onSel({ kind: 'site', id: a.id }); }}>
+            <g key={a.id} style={{ cursor: 'pointer' }}
+              /* onMouseOver/Out rather than Enter/Leave: the launcher glyph
+               * is composed of many child shapes, and Enter/Leave do not
+               * bubble, so moving between children of the same battery
+               * produced no event at all. */
+              onMouseOver={() => setHovSite(a.id)}
+              onMouseOut={() => setHovSite((h) => (h === a.id ? null : h))}
+              onClick={(e) => { e.stopPropagation(); if (!drag.current?.moved) onSel({ kind: 'site', id: a.id }); }}>
               {showRing && (
                 <circle cx={cx} cy={cy} r={a.maxSlantRange * kmToPx} fill="none"
-                  stroke={col} strokeOpacity={hi ? .55 : on ? (a.maxSlantRange > 150 ? .16 : .28) : .14}
-                  strokeWidth={(hi ? 1.5 : 1) * iz}
+                  stroke={col}
+                  strokeOpacity={focused ? .6 : on ? (a.maxSlantRange > 150 ? .16 : .26) : .14}
+                  strokeWidth={(focused ? 1.6 : 1) * iz}
                   strokeDasharray={used ? `${9 * iz} ${6 * iz}` : `${4 * iz} ${7 * iz}`} />
               )}
-              {layers.rings && on && !used && !hi && (
-                <circle cx={cx} cy={cy} r={a.maxSlantRange * kmToPx} fill="none" stroke={col}
-                  strokeOpacity=".1" strokeWidth={.8 * iz} strokeDasharray={`${2 * iz} ${11 * iz}`} />
+              {/* Hovering a site also states its reach in words, so the ring
+                  does not have to be measured against the scale bar. */}
+              {focused && (
+                <text x={cx} y={cy - (a.maxSlantRange * kmToPx) - 6 * iz}
+                  fill={col} fontSize={9.5 * iz} textAnchor="middle"
+                  stroke="#040910" strokeWidth={2.6 * iz} paintOrder="stroke">
+                  {a.maxSlantRange} km ENVELOPE
+                </text>
               )}
+              {/* Invisible hit target. The deployment polygon is only ~4x5 px
+                * on screen and the launcher glyph lives in a sibling group,
+                * so there was effectively nothing to hover: measured, the
+                * element under the cursor at the battery's own centre was a
+                * terrain path, not the battery. This disc gives the site a
+                * reliable ~30 px grab area for the on-demand ring and stats. */}
+              <circle cx={cx} cy={cy} r={15 * iz} fill="transparent" />
               <polygon points={a.polygon.map((p) => `${PX(p.lon)},${PY(p.lat)}`).join(' ')}
                 fill={on ? (used ? 'rgba(255,176,32,.22)' : 'rgba(67,96,120,.2)') : 'rgba(107,47,61,.28)'}
                 stroke={col} strokeWidth={(hi ? 2.2 : 1.4) * iz} />
@@ -467,7 +510,11 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                     fill={col} fontSize={10 * ICON} textAnchor="middle" fontWeight="600"
                     stroke="#040910" strokeWidth="2.8" paintOrder="stroke">{a.name}</text>
                 )}
-                {(hi || !on || active) && (
+                {/* Inventory and reach are DETAIL, not identity. They now
+                  * appear only for the site being hovered or inspected (and
+                  * for a dead battery, where OFFLINE is the whole point).
+                  * The same figures are always available in the Inspector. */}
+                {(focused || !on) && (
                   <text y={21 * ICON} fill={on ? '#5d7d96' : '#8a4550'} fontSize={8.5 * ICON} textAnchor="middle"
                     stroke="#040910" strokeWidth="2.6" paintOrder="stroke">
                     {on ? `${a.inventory} RDY · ${a.maxSlantRange}km` : 'OFFLINE'}
@@ -530,7 +577,10 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
               )}
               {/* live track symbol */}
               {active && st && !killed && (
-                <g style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); if (!drag.current?.moved) onSel({ kind: 'threat', id: th.id }); }}>
+                <g style={{ cursor: 'pointer' }}
+                  onMouseOver={() => setHovThreat(th.id)}
+                  onMouseOut={() => setHovThreat((h) => (h === th.id ? null : h))}
+                  onClick={(e) => { e.stopPropagation(); if (!drag.current?.moved) onSel({ kind: 'threat', id: th.id }); }}>
                   {isSel && <circle cx={PX(st.p.lon)} cy={PY(st.p.lat)} r={18 * iz} fill="none" stroke={COL.asset} strokeWidth={iz} strokeDasharray={`${3 * iz} ${3 * iz}`} />}
                   <g transform={`translate(${PX(st.p.lon)},${PY(st.p.lat)}) scale(${iz})`}>
                     <g transform={`rotate(${headingAt(th, t)})`}>
@@ -550,19 +600,32 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                       * Telemetry moves to the second line and only appears
                       * when this track is selected, so eight simultaneous
                       * tracks do not print eight paragraphs over the map. */}
+                    {/* TRACK ID ONLY by default. With eight simultaneous
+                      * tracks, eight full weapon names ("J-20 Mighty Dragon")
+                      * is more text than a viewer can parse in the first few
+                      * seconds — and the silhouette already conveys the
+                      * class. The full name appears on hover or selection,
+                      * and always in the Fire Plan and Event Log. */}
                     <text x={15 * ICON} y={-5 * ICON + (labelOffsets.get('t:' + th.id) ?? 0)}
                       fill="#ff8f9d" fontSize={12.5 * ICON}
                       fontWeight="700" letterSpacing=".4"
                       stroke="#040910" strokeWidth="3.2" paintOrder="stroke">
-                      {threatName(th.systemId, th.cls)}
+                      {th.callsign}
                     </text>
-                    <text x={15 * ICON} y={6.5 * ICON + (labelOffsets.get('t:' + th.id) ?? 0)}
-                      fill="#8a6268" fontSize={9 * ICON}
-                      stroke="#040910" strokeWidth="2.4" paintOrder="stroke">
-                      {isSel
-                        ? `${th.callsign} · ${(st.p.alt / 1000).toFixed(0)}km · M${(st.speed / 340).toFixed(1)} → ${th.targetAssetName}`
-                        : th.callsign}
-                    </text>
+                    {(isSel || hovThreat === th.id) && (
+                      <text x={15 * ICON} y={6.5 * ICON + (labelOffsets.get('t:' + th.id) ?? 0)}
+                        fill="#c8919b" fontSize={9.5 * ICON}
+                        stroke="#040910" strokeWidth="2.4" paintOrder="stroke">
+                        {threatName(th.systemId, th.cls)}
+                      </text>
+                    )}
+                    {isSel && (
+                      <text x={15 * ICON} y={17 * ICON + (labelOffsets.get('t:' + th.id) ?? 0)}
+                        fill="#8a6268" fontSize={9 * ICON}
+                        stroke="#040910" strokeWidth="2.4" paintOrder="stroke">
+                        {(st.p.alt / 1000).toFixed(0)}km · M{(st.speed / 340).toFixed(1)} → {th.targetAssetName}
+                      </text>
+                    )}
                   </g>
                 </g>
               )}
@@ -583,6 +646,14 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
         })}
 
         {/* ---------- OUTGOING INTERCEPTOR RESPONSE (blue, solid, from battery) ---------- */}
+        {/* First shot index per battery whose countdown is live, so the
+            arming ring and its caption are drawn exactly once. */}
+        {(() => { armingLead.clear();
+          (sol?.shots ?? []).forEach((s, i) => {
+            if (t >= s.option.tLaunch - 25 && t < s.option.tLaunch &&
+                !armingLead.has(s.areaId)) armingLead.set(s.areaId, i);
+          });
+          return null; })()}
         {layers.engage && sol?.shots.map((s, i) => {
           const a = sc.areas.find((x) => x.id === s.areaId)!;
           const o = s.option;
@@ -603,14 +674,21 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
           // Highlight the battery in the seconds before it fires, so a viewer
           // scrubbing the timeline can see an engagement about to happen
           // rather than only catching the short fly-out window.
-          const arming = t >= o.tLaunch - 25 && t < o.tLaunch;
+          /* Draw the arming countdown ONCE PER BATTERY, not once per shot.
+           * A salvo commits several rounds from the same launcher with the
+           * same tLaunch, and each was rendering its own "FIRING IN 10s" at
+           * the identical pixel — measured as 36 overlapping label pairs in a
+           * single frame, all of them self-inflicted duplicates. */
+          const arming = t >= o.tLaunch - 25 && t < o.tLaunch &&
+            armingLead.get(a.id) === i;
           return (
             <g key={i}>
               {arming && (
                 <g transform={`translate(${x0},${y0})`}>
                   <circle r={13 * iz} fill="none" stroke={COL.intcp} strokeWidth={1.4 * iz}
                     strokeOpacity=".85" strokeDasharray={`${3 * iz} ${3 * iz}`} className="pulse" />
-                  <text y={-20 * iz} fill={COL.intcp} fontSize={9 * iz} textAnchor="middle"
+                  <text y={(-20 + (labelOffsets.get('b:' + a.id) ?? 0)) * iz}
+                    fill={COL.intcp} fontSize={9 * iz} textAnchor="middle"
                     stroke="#040910" strokeWidth={2.4 * iz} paintOrder="stroke">
                     FIRING IN {(o.tLaunch - t).toFixed(0)}s
                   </text>
