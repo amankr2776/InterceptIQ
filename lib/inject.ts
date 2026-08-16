@@ -1,6 +1,7 @@
 import { makeRng } from './rng';
 import { THREATS } from './systems';
 import { KM_LAT, kmLon } from './scenario';
+import { findHostileLaunch, inIndia, exitDistanceKm } from './border';
 import type { Scenario, Threat, TrajectorySample } from './types';
 
 const g = 9.80665;
@@ -26,10 +27,38 @@ export function injectThreat(
     return !best || d < best.d ? { a, d } : best;
   }, null as null | { a: Scenario['assets'][0]; d: number })!;
   const rng = makeRng(Math.floor(Math.random() * 1e9));
-  const spec = THREATS.find((x) => x.id === systemId) ?? THREATS[rng.int(0, THREATS.length - 1)];
 
-  const bearFrom = rng.range(0, 360);
-  const rangeKm = rng.range(spec.rangeKm[0] * 0.4, Math.min(spec.rangeKm[1], 700));
+  /* Pick a weapon that can actually make this shot from outside the border.
+   * A 200 km Abdali cannot reach Bengaluru from international territory, so
+   * offering it would force an impossible (or illegal) launch geometry.
+   * If the operator named a system we honour it; otherwise we choose among
+   * those with the reach for this aimpoint. */
+  let candidates = THREATS.slice();
+  if (systemId) {
+    candidates = THREATS.filter((x) => x.id === systemId);
+  } else {
+    let need = Infinity;
+    for (let b = 0; b < 360; b += 10) {
+      const d = exitDistanceKm(aimLat, aimLon, b);
+      if (d !== null && d < need) need = d;
+    }
+    const viable = THREATS.filter((x) => Math.min(x.rangeKm[1], 900) >= need + 60);
+    if (viable.length) candidates = viable;
+  }
+  const spec = candidates[rng.int(0, candidates.length - 1)];
+
+  /* Same border constraint as the scenario generator: a hostile launcher must
+   * sit outside Indian territory. Sweeps the full circle since an operator can
+   * drop an aimpoint anywhere. */
+  const launch = findHostileLaunch(
+    aimLat, aimLon,
+    [0, 360],
+    Math.max(spec.rangeKm[0] * 0.4, 120),
+    Math.min(spec.rangeKm[1], 900),
+    rng.next,
+  );
+  const bearFrom = launch ? launch.bearingFrom : rng.range(0, 360);
+  const rangeKm = launch ? launch.rangeKm : rng.range(spec.rangeKm[0] * 0.4, Math.min(spec.rangeKm[1], 700));
   const th = (bearFrom * Math.PI) / 180;
   const oLat = aimLat + (rangeKm * Math.cos(th)) / KM_LAT;
   const oLon = aimLon + (rangeKm * Math.sin(th)) / kmLon(aimLat);
@@ -60,8 +89,17 @@ export function injectThreat(
      * TERMINAL INGRESS LEG only: the track is picked up as it enters radar
      * coverage, so the simulated flight begins at a realistic acquisition
      * range rather than at the launcher. */
-    const ingressKm = Math.min(rangeKm, 260);
-    const dur = (ingressKm * 1000) / v;
+    let ingressKm = Math.min(rangeKm, 260);
+    {
+      const bt = (bearFrom * Math.PI) / 180;
+      for (let k = 0; k < 40; k++) {
+        const sLat0 = aimLat + (ingressKm * Math.cos(bt)) / KM_LAT;
+        const sLon0 = aimLon + (ingressKm * Math.sin(bt)) / kmLon(aimLat);
+        if (!inIndia(sLat0, sLon0) || ingressKm >= rangeKm) break;
+        ingressKm = Math.min(rangeKm, ingressKm + 25);
+      }
+    }
+    const dur = Math.min((ingressKm * 1000) / v, 900);
     const ing = ingressKm / rangeKm;
     const sLat = aimLat + (oLat - aimLat) * ing;
     const sLon = aimLon + (oLon - aimLon) * ing;

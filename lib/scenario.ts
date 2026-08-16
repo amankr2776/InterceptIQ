@@ -1,6 +1,7 @@
 import { makeRng } from './rng';
 import { INTERCEPTORS, THREATS, type InterceptorSpec, type ThreatSpec } from './systems';
 import { THEATRES, sectorById, type Theatre } from './theatre';
+import { findHostileLaunch, inIndia } from './border';
 import type {
   Scenario, Threat, LaunchArea, DefendedAsset, TrajectorySample, ThreatClass,
 } from './types';
@@ -60,10 +61,9 @@ function propagate(
   aim: { lat: number; lon: number },
   bearingFrom: number,   // compass bearing the threat comes FROM
   t0: number,
-  rng: ReturnType<typeof makeRng>
+  rng: ReturnType<typeof makeRng>,
+  rangeKm: number        // validated: places the origin outside Indian territory
 ): { samples: TrajectorySample[]; apogee: number; origin: { lat: number; lon: number } } {
-  // How far out the shooter is: a fraction of the system's published range
-  const rangeKm = rng.range(spec.rangeKm[0] * 0.45, Math.min(spec.rangeKm[1], 900));
   const th = (bearingFrom * Math.PI) / 180;
   // origin lies along bearingFrom, target flies the reciprocal
   const oLat = aim.lat + (rangeKm * Math.cos(th)) / KM_LAT;
@@ -84,13 +84,30 @@ function propagate(
   if (spec.cls === 'CRUISE') {
     const cruiseAlt = rng.range(spec.apogeeKm[0], spec.apogeeKm[1]) * 1000;
     const v = spec.terminalSpeedMs;
+    /* Time compression for long standoff ingress. The geometry (where it was
+     * launched, where it crosses the border, where it strikes) stays exact;
+     * only the playback clock is compressed, so a 45-minute subsonic transit
+     * fits a demo timeline. Reported speeds remain the true published values. */
     /* A subsonic cruise missile flying its full published range takes 30+
      * minutes, which is real but useless on a tactical display. We model the
      * TERMINAL INGRESS LEG only: the track is picked up as it enters radar
-     * coverage, so the simulated flight begins at a realistic acquisition
-     * range rather than at the launcher. */
-    const ingressKm = Math.min(rangeKm, 260);
-    const dur = (ingressKm * 1000) / v;
+     * coverage rather than at the launcher.
+     *
+     * The ingress start must still lie OUTSIDE Indian territory, otherwise the
+     * truncation would place a hostile track over the country it is attacking.
+     * We therefore extend the leg until its start point clears the border. */
+    let ingressKm = Math.min(rangeKm, 260);
+    {
+      const bt = (bearingFrom * Math.PI) / 180;
+      for (let k = 0; k < 40; k++) {
+        const sLat = aim.lat + (ingressKm * Math.cos(bt)) / KM_LAT;
+        const sLon = aim.lon + (ingressKm * Math.sin(bt)) / kmLon(aim.lat);
+        if (!inIndia(sLat, sLon) || ingressKm >= rangeKm) break;
+        ingressKm = Math.min(rangeKm, ingressKm + 25);
+      }
+    }
+    const trueDur = (ingressKm * 1000) / v;
+    const dur = Math.min(trueDur, 900);   // cap playback at 15 min
     const ing = ingressKm / rangeKm;      // fraction of the leg we simulate
     const sLat = aim.lat + (oLat - aim.lat) * ing;
     const sLon = aim.lon + (oLon - aim.lon) * ing;
@@ -243,18 +260,42 @@ export function generateScenario(opts: GenOpts): Scenario {
   for (let i = 0; i < nThreats; i++) {
     const spec: ThreatSpec = mix[rng.int(0, mix.length - 1)];
     const aimAsset = assets[rng.int(0, assets.length - 1)];
-    const jitter = rng.range(0, aimAsset.radiusKm * 1.1);
-    const jAng = rng.range(0, 2 * Math.PI);
-    const aim = {
-      lat: aimAsset.centroid.lat + (jitter * Math.sin(jAng)) / KM_LAT,
-      lon: aimAsset.centroid.lon + (jitter * Math.cos(jAng)) / kmLon(aimAsset.centroid.lat),
-    };
-    const arc = theatre.threatArc;
-    const lo = arc[0], hi = arc[1] < arc[0] ? arc[1] + 360 : arc[1];
-    const bearFrom = ((rng.range(lo, hi) % 360) + 360) % 360;
+    /* Aimpoint scatter around the target city. Coastal assets (Mumbai,
+     * Chennai, Jamnagar...) sit on the shoreline, so unconstrained jitter can
+     * put the impact point out to sea. Retry inward, then fall back to the
+     * city centre, so a strike always lands on the territory being defended. */
+    let aim = { lat: aimAsset.centroid.lat, lon: aimAsset.centroid.lon };
+    for (let k = 0; k < 12; k++) {
+      const jitter = rng.range(0, aimAsset.radiusKm * 1.1);
+      const jAng = rng.range(0, 2 * Math.PI);
+      const cand = {
+        lat: aimAsset.centroid.lat + (jitter * Math.sin(jAng)) / KM_LAT,
+        lon: aimAsset.centroid.lon + (jitter * Math.cos(jAng)) / kmLon(aimAsset.centroid.lat),
+      };
+      if (inIndia(cand.lat, cand.lon)) { aim = cand; break; }
+    }
+    // If the city centre itself sits just offshore in the simplified border
+    // geometry, keep it — but never let scatter push the impact out to sea.
+    if (!inIndia(aim.lat, aim.lon)) {
+      aim = { lat: aimAsset.centroid.lat, lon: aimAsset.centroid.lon };
+    }
+    /* Hostile launch geometry.
+     * A launch point must lie OUTSIDE Indian territory and far enough beyond
+     * the frontier to be a credible standoff shot. findHostileLaunch ray-casts
+     * against the real national border, so tracks always cross the boundary
+     * inbound instead of appearing over the country they are attacking. */
+    const launch = findHostileLaunch(
+      aim.lat, aim.lon,
+      theatre.threatArc,
+      Math.max(spec.rangeKm[0] * 0.45, 120),
+      Math.min(spec.rangeKm[1], 900),
+      rng.next,
+    );
+    if (!launch) continue;   // no viable hostile geometry for this aimpoint
+    const bearFrom = launch.bearingFrom;
     const t0 = rng.range(0, opts.tier === 'hard' ? 70 : 110);
 
-    const { samples, apogee } = propagate(spec, aim, bearFrom, t0, rng);
+    const { samples, apogee } = propagate(spec, aim, bearFrom, t0, rng, launch.rangeKm);
     // fill AOI-relative local coords
     samples.forEach((s) => { s.l = toL(s.p.lat, s.p.lon, s.p.alt); });
 
@@ -265,16 +306,17 @@ export function generateScenario(opts: GenOpts): Scenario {
     let flyBear = (Math.atan2(last.l.x - first.l.x, last.l.y - first.l.y) * 180) / Math.PI;
     if (flyBear < 0) flyBear += 360;
 
+    const n = threats.length + 1;
     threats.push({
-      id: `T-${i + 1}`,
-      callsign: `TGT-${String(i + 1).padStart(2, '0')}`,
+      id: `T-${n}`,
+      callsign: `TGT-${String(n).padStart(2, '0')}`,
       cls: spec.cls as ThreatClass,
       systemId: spec.id,
       rvValue: Math.round(Math.min(10, 3 + spec.warheadKg / 150)),
       trajectory: samples,
       impact: { t: last.t, p: last.p, l: last.l },
       apogeeAlt: Math.round(apogee),
-      origin: { p: first.p, l: first.l, name: `LP-${String(i + 1).padStart(2, '0')}` },
+      origin: { p: first.p, l: first.l, name: `LP-${String(n).padStart(2, '0')}` },
       targetAssetId: aimAsset.id,
       targetAssetName: aimAsset.name,
       bearingDeg: +flyBear.toFixed(1),
