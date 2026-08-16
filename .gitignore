@@ -1,0 +1,19 @@
+node_modules
+.next
+out
+shot*.png
+shot.mjs
+.env*.local
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# playwright / scratch artifacts
+*.mjs.bak
+v*.png
+n*.png
+r*.png
+w*.png
+p[0-9].png
+f[0-9].png
+dbg*

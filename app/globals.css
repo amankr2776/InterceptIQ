@@ -1,0 +1,70 @@
+/* ============================================================
+   CK115 — defence C2 visual language
+   Restrained palette: near-black navy ground, single amber accent
+   for active/decision state, cyan for data, red ONLY for critical.
+   1px borders, no shadows, monospace throughout.
+   ============================================================ */
+:root {
+  --bg:      #05070a;
+  --bg2:     #080b10;
+  --panel:   #0a0e14;
+  --panel2:  #0e141c;
+  --line:    #182230;
+  --line2:   #223044;
+  --txt:     #c5d2e0;
+  --dim:     #5d7186;
+  --dim2:    #3b4a5c;
+  --amb:     #ffb020;   /* accent: active / decision */
+  --cy:      #38bdf8;   /* data / informational */
+  --grn:     #34d399;   /* success / intercept */
+  --red:     #f43f5e;   /* critical only */
+  --vio:     #a78bfa;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--bg); color: var(--txt);
+  font-family: var(--font-mono), ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12.5px; font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+
+button {
+  font-family: inherit; font-size: 10.5px; letter-spacing: .07em;
+  text-transform: uppercase; cursor: pointer;
+  background: var(--panel2); color: var(--txt);
+  border: 1px solid var(--line); border-radius: 2px;
+  padding: 7px 10px; transition: border-color .12s, color .12s, background .12s;
+}
+button:hover:not(:disabled) { border-color: var(--amb); color: var(--amb); }
+button:disabled { opacity: .3; cursor: not-allowed; }
+button.on { background: rgba(255,176,32,.12); border-color: var(--amb); color: var(--amb); }
+button.danger.on { background: rgba(244,63,94,.13); border-color: var(--red); color: var(--red); }
+
+input[type=range] { accent-color: var(--amb); }
+input[type=text], input[type=number], select {
+  font-family: inherit; font-size: 11.5px;
+  background: var(--bg2); color: var(--txt);
+  border: 1px solid var(--line); border-radius: 2px; padding: 5px 7px; width: 100%;
+}
+input:focus, select:focus { outline: none; border-color: var(--amb); }
+
+table { border-collapse: collapse; }
+th { font-weight: 500; font-size: 9.5px; letter-spacing: .08em; color: var(--dim2);
+     text-align: left; padding: 5px 7px; text-transform: uppercase; }
+td { padding: 4px 7px; }
+
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--dim2); }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; }
+.lbl { font-size: 9.5px; letter-spacing: .12em; color: var(--dim2); text-transform: uppercase; }
+
+@keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+.pulse { animation: pulse 2s ease-in-out infinite; }
+@keyframes sweep { from { transform: rotate(0) } to { transform: rotate(360deg) } }
+@keyframes fadein { from { opacity: 0; transform: translateY(-3px) } to { opacity: 1; transform: none } }
+.fadein { animation: fadein .22s ease-out; }
