@@ -6,7 +6,7 @@ import { allocate, allocateMinimalSet } from './allocator';
 import { injectThreat } from './inject';
 import {
   setAudioEnabled, sfxLaunch, sfxIntercept, sfxImpact, sfxAlert, sfxLock, sfxJet,
-  startBed, stopBed,
+  sfxDrone, sfxSonicBoom, startBed, stopBed,
 } from './audio';
 import type { AllocationSolution, Scenario } from './types';
 import { solveAllModes, solveMode, type Mode, type ModeResult } from './compare';
@@ -161,27 +161,51 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
       if (played.current.has(key)) return;
       played.current.add(key); fn();
     };
+
+    /* The listener stands at the primary defended asset — the command post.
+     * Every cue is then delayed, filtered and reverberated by its real
+     * distance from that point, so a 200 km exo-atmospheric kill arrives as a
+     * far-off rumble and a terminal intercept overhead hits hard. Without
+     * this every event sounded identical and therefore synthetic. */
+    const ear = sc.assets[0]?.centroid ?? { lat: sc.aoi.lat0, lon: sc.aoi.lon0 };
+    const rangeKm = (p: { lat: number; lon: number }) => {
+      const dLat = (p.lat - ear.lat) * 110.574;
+      const dLon = (p.lon - ear.lon) * 111.32 * Math.cos((ear.lat * Math.PI) / 180);
+      return Math.hypot(dLat, dLon);
+    };
+    /** Slant range: include altitude, or a high-altitude burst reads as close. */
+    const slantKm = (p: { lat: number; lon: number }, altM: number) =>
+      Math.hypot(rangeKm(p), altM / 1000);
+
     for (const th of sc.threats) {
-      if (th.borderCrossT !== null && t >= th.borderCrossT && t < th.borderCrossT + 3)
-        fire(`x${th.id}`, sfxAlert);
-      // manned aircraft get an audible flyby as they cross
-      if (th.cls === 'AIRCRAFT' && th.borderCrossT !== null &&
-          t >= th.borderCrossT && t < th.borderCrossT + 3)
-        fire(`j${th.id}`, () => sfxJet(3.6));
+      if (th.borderCrossT !== null && t >= th.borderCrossT && t < th.borderCrossT + 3) {
+        fire(`x${th.id}`, () => sfxAlert());
+        const st = th.trajectory.find((s) => s.t >= th.borderCrossT!) ?? th.trajectory[0];
+        const d = slantKm(st.p, st.p.alt);
+        // each class announces itself with its own airframe signature
+        if (th.cls === 'AIRCRAFT') fire(`j${th.id}`, () => sfxJet(4.2, Math.min(d, 14)));
+        else if (th.cls === 'DRONE') fire(`d${th.id}`, () => sfxDrone(5.0, Math.min(d, 12)));
+        else if (th.cls !== 'CRUISE') fire(`b${th.id}`, () => sfxSonicBoom(Math.min(d, 90)));
+      }
       const r = sol.perThreat.find((p) => p.threatId === th.id);
-      if (r?.leaker && t >= th.impact.t && t < th.impact.t + 3) fire(`i${th.id}`, sfxImpact);
+      if (r?.leaker && t >= th.impact.t && t < th.impact.t + 3)
+        fire(`i${th.id}`, () => sfxImpact(rangeKm(th.impact.p)));
     }
     for (const s of sol.shots) {
       const a = sc.areas.find((x) => x.id === s.areaId);
       // heavier systems get a weightier launch signature
-      const power = a ? (a.maxSlantRange >= 150 ? 1.25 : a.maxSlantRange >= 60 ? 1.0 : 0.8) : 1;
+      const power = a ? (a.maxSlantRange >= 150 ? 1.3 : a.maxSlantRange >= 60 ? 1.0 : 0.75) : 1;
+      const launchKm = a ? rangeKm(a.centroid) : 4;
       if (t >= s.option.tLaunch - 2.2 && t < s.option.tLaunch - 1.9)
         fire(`c${s.areaId}${s.threatId}${s.salvoIndex}`, sfxLock);
       if (t >= s.option.tLaunch && t < s.option.tLaunch + 3)
-        fire(`l${s.areaId}${s.threatId}${s.salvoIndex}`, () => sfxLaunch(power));
+        fire(`l${s.areaId}${s.threatId}${s.salvoIndex}`, () => sfxLaunch(power, launchKm));
       if (t >= s.option.tIntercept && t < s.option.tIntercept + 3)
-        fire(`k${s.areaId}${s.threatId}${s.salvoIndex}`,
-          () => sfxIntercept(s.option.interceptAltM > 20000 ? 0.7 : 1.0));
+        fire(`k${s.areaId}${s.threatId}${s.salvoIndex}`, () => sfxIntercept(
+          // warhead mass drives the crack: big LR interceptor vs point defence
+          power,
+          slantKm(s.option.interceptPoint, s.option.interceptAltM)
+        ));
     }
   }, [t, audio, sc, sol, mode]);
   useEffect(() => { if (sc) setMode(minimise ? 'minimal' : 'layered'); /* eslint-disable-next-line */ }, [minimise]);

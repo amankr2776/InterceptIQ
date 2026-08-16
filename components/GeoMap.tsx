@@ -8,6 +8,10 @@ import { batteryStatuses, type BatteryState } from '@/lib/alert';
 import { useElementSize } from '@/lib/useElementSize';
 import FxLayer from './FxLayer';
 import { KM_LAT, kmLon } from '@/lib/scenario';
+import {
+  killTimes, shotPhase, interceptorAt, interceptorHeading,
+  salvoSide, salvoLoft, flyoutPath,
+} from '@/lib/flight';
 import { ShieldIcon, BurstIcon, BatteryIcon, EngagementDefs, MissileBody, InterceptorBody, DroneIcon, launcherClassFor, symbolPath, COL } from './symbols';
 
 export type Sel =
@@ -131,6 +135,11 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
     const killed = !!first && t >= first.option.tIntercept;
     return { th, st, active, res, first, killed };
   }), [sc, sol, t]);
+
+  /* When each threat actually dies — the earliest intercept among the shots
+   * committed to it. Rounds arriving later are wasted and must be destructed
+   * rather than drawn flying at a dead target. */
+  const killT = useMemo(() => killTimes(sol), [sol]);
 
   const selArea = new Set(sol?.selectedAreaIds ?? []);
   /* Live readiness per battery — READY / ALERT / TRACKING / LOCKED / FIRING.
@@ -458,11 +467,20 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
         {layers.engage && sol?.shots.map((s, i) => {
           const a = sc.areas.find((x) => x.id === s.areaId)!;
           const o = s.option;
-          if (t < o.tLaunch) return null;
-          const f = Math.min(1, (t - o.tLaunch) / Math.max(.1, o.tIntercept - o.tLaunch));
+          /* Phase comes from the shared flight model, which terminates a round
+           * the moment ITS TARGET dies rather than at its own nominal
+           * intercept time. 18.8% of shots in a deep salvo arrive after the
+           * threat is already destroyed; drawing those was what made
+           * interceptors appear to fly off at nothing. */
+          const ph = shotPhase(s, t, killT.get(s.threatId));
+          if (ph.state === 'prelaunch' && !(t >= o.tLaunch - 25)) return null;
+          if (ph.state === 'done') return null;
+          const f = ph.f;
+          const side = salvoSide(s), loft = salvoLoft(s);
           const x0 = PX(a.centroid.lon), y0 = PY(a.centroid.lat);
           const x1 = PX(o.interceptPoint.lon), y1 = PY(o.interceptPoint.lat);
-          const done = t >= o.tIntercept;
+          const A = { x: x0, y: y0 }, B = { x: x1, y: y1 };
+          const done = ph.state !== 'flying' && ph.state !== 'prelaunch';
           // Highlight the battery in the seconds before it fires, so a viewer
           // scrubbing the timeline can see an engagement about to happen
           // rather than only catching the short fly-out window.
@@ -479,23 +497,41 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                   </text>
                 </g>
               )}
-              {/* planned fly-out corridor */}
-              <line x1={x0} y1={y0} x2={x1} y2={y1} stroke={COL.intcp}
-                strokeOpacity={done ? .12 : .28} strokeWidth={.9 * iz}
+              {/* planned fly-out corridor — the lofted curve, not a chord */}
+              <path d={flyoutPath(A, B, 1, loft, side)} fill="none" stroke={COL.intcp}
+                strokeOpacity={done ? .1 : .24} strokeWidth={.9 * iz}
                 strokeDasharray={`${3 * iz} ${5 * iz}`} />
-              {/* interceptor in flight: solid blue, arrowhead leading, moving OUTWARD */}
-              {!done && (
-                <>
-                  <line className="intcp-line" x1={x0} y1={y0}
-                    x2={x0 + (x1 - x0) * f} y2={y0 + (y1 - y0) * f}
-                    stroke={COL.intcp} strokeWidth={2.2 * iz} strokeOpacity=".97"
-                    strokeDasharray={`${10 * iz} ${5 * iz}`} markerEnd="url(#arrowIntcp)" />
-                  <g transform={`translate(${x0 + (x1 - x0) * f},${y0 + (y1 - y0) * f}) scale(${iz}) rotate(${
-                    (Math.atan2(x1 - x0, y0 - y1) * 180) / Math.PI})`}>
-                    <InterceptorBody s={0.95 * ICON} />
+              {/* interceptor in flight: solid blue, nose along its own velocity vector */}
+              {ph.state === 'flying' && (() => {
+                const p = interceptorAt(A, B, f, loft, side);
+                // heading is the tangent to the flown curve, so the airframe
+                // always points where it is actually going
+                const hd = interceptorHeading(A, B, f, loft, side);
+                return (
+                  <>
+                    <path className="intcp-line" d={flyoutPath(A, B, f, loft, side)}
+                      fill="none" stroke={COL.intcp} strokeWidth={2.2 * iz} strokeOpacity=".97"
+                      strokeDasharray={`${10 * iz} ${5 * iz}`} />
+                    <g transform={`translate(${p.x},${p.y}) scale(${iz}) rotate(${
+                      (hd * 180) / Math.PI + 90})`}>
+                      <InterceptorBody s={0.95 * ICON} />
+                    </g>
+                  </>
+                );
+              })()}
+              {/* A round whose target was killed by an earlier shot in the
+                * salvo is destructed in place — it must not keep tracking an
+                * aim point that no longer means anything. */}
+              {ph.state === 'destruct' && (() => {
+                const p = interceptorAt(A, B, f, loft, side);
+                return (
+                  <g transform={`translate(${p.x},${p.y}) scale(${iz})`} opacity=".85">
+                    <circle r={4.5} fill="none" stroke="#7f9bb3" strokeWidth="1.3" />
+                    <path d="M-6,-6 L6,6 M6,-6 L-6,6" stroke="#7f9bb3" strokeWidth="1.2" />
+                    <text y={-11} fill="#7f9bb3" fontSize="7.5" textAnchor="middle">DESTRUCT</text>
                   </g>
-                </>
-              )}
+                );
+              })()}
               {/* aim point */}
               <circle cx={x1} cy={y1} r={2.6 * iz} fill="none" stroke={COL.intcp}
                 strokeWidth={1.2 * iz} strokeOpacity=".55" />

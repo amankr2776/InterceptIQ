@@ -2,9 +2,10 @@
 // InterceptIQ
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Particles, Shake } from '@/lib/fx';
+import { interceptorAt, interceptorHeading } from '@/lib/flight';
 import {
   setAudioEnabled, isAudioEnabled, sfxLaunch, sfxIntercept, sfxAlert, sfxJet,
-  sfxLock, startBed, stopBed,
+  sfxDrone, sfxSonicBoom, sfxLock, startBed, stopBed,
 } from '@/lib/audio';
 import {
   drawBallistic, drawCruise, drawJet, drawDrone, drawInterceptor, drawTEL,
@@ -49,11 +50,27 @@ const BATTERIES = [
 ];
 
 const TRACKS: Track[] = [
-  { id: 'T1', kind: 'ballistic', x0: 80,  y0: 330, x1: 1330, y1: 470, loft: 250, tIn: 2.2,  tCross: 4.6,  tKill: 12.2, by: 'S400',  label: 'SRBM · 700 kg HE',   scale: 1.5 },
-  { id: 'T2', kind: 'ballistic', x0: 30,  y0: 520, x1: 1140, y1: 660, loft: 190, tIn: 3.0,  tCross: 5.2,  tKill: 13.6, by: 'S400',  label: 'MRBM · Mach 6.5',    scale: 1.35 },
-  { id: 'T3', kind: 'cruise',    x0: 50,  y0: 782, x1: 1045, y1: 772, loft: 26,  tIn: 3.8,  tCross: 6.0,  tKill: 15.0, by: 'AKASH', label: 'CRUISE · terrain-hug', scale: 1.35 },
+  { id: 'T1', kind: 'ballistic', x0: 80,  y0: 330, x1: 1330, y1: 470, loft: 250, tIn: 2.2,  tCross: 4.6,  tKill: 12.2, by: 'S400',  label: 'SHAHEEN-II · 700 kg HE', scale: 1.5 },
+  { id: 'T2', kind: 'ballistic', x0: 30,  y0: 520, x1: 1140, y1: 660, loft: 190, tIn: 3.0,  tCross: 5.2,  tKill: 13.6, by: 'S400',  label: 'GHAURI · Mach 6.5',    scale: 1.35 },
+  { id: 'T3', kind: 'cruise',    x0: 50,  y0: 782, x1: 1045, y1: 772, loft: 26,  tIn: 3.8,  tCross: 6.0,  tKill: 15.0, by: 'AKASH', label: 'BABUR · terrain-hugging', scale: 1.35 },
   { id: 'T4', kind: 'drone',     x0: 60,  y0: 640, x1: 1050, y1: 700, loft: 40,  tIn: 6.4,  tCross: 8.2,  tKill: 16.4, by: 'AKASH', label: 'SHAHPAR-II · UAV',   scale: 1.2 },
   { id: 'T5', kind: 'jet',       x0: 10,  y0: 890, x1: 1510, y1: 846, loft: 16,  tIn: 15.4, tCross: 16.6, tKill: 20.4, by: 'QRSAM', label: 'JF-17 · low-level ingress', scale: 1.45 },
+];
+
+/**
+ * FRIENDLY COMBAT AIR PATROL.
+ * The user asked for MiG-21, Rafale and Su-30 — those are Indian types, so
+ * they belong on the defending side, not among the threats. They fly a CAP
+ * racetrack behind the battery line: visibly ours (blue), never engaged, and
+ * they make the scene read as a defended airspace rather than an empty one.
+ */
+interface Cap {
+  id: string; name: string; y: number; speed: number; phase: number; scale: number;
+}
+const CAP: Cap[] = [
+  { id: 'C1', name: 'RAFALE · CAP',    y: 250, speed: 0.070, phase: 0.10, scale: 1.30 },
+  { id: 'C2', name: 'Su-30MKI · CAP',  y: 190, speed: 0.056, phase: 0.55, scale: 1.45 },
+  { id: 'C3', name: 'MiG-21 · ESCORT', y: 318, speed: 0.086, phase: 0.78, scale: 1.05 },
 ];
 
 const arcAt = (t: Track, u: number) => ({
@@ -131,13 +148,41 @@ export default function CinematicIntro({ onDone }: { onDone: () => void }) {
         const cue = (k: string, at: number, fn: () => void) => {
           if (t >= at && !cued.current.has(k)) { cued.current.add(k); fn(); }
         };
+        /* The listener stands at the protected city (x=1740). Distance in the
+         * scene is converted to kilometres so the audio engine can apply the
+         * right propagation delay, air absorption and reverb: a kill far out
+         * on the frontier arrives as a delayed rumble, a low pass overhead
+         * hits dry and hard. This is what stops every cue sounding identical. */
+        const KM_PER_PX = 0.42;
+        const EAR_X = 1740, EAR_Y = H * 0.665;
+        const kmFrom = (x: number, y: number) =>
+          Math.hypot(x - EAR_X, y - EAR_Y) * KM_PER_PX;
+
+        // one siren for the whole raid, not one per track — a real alert
+        // network sounds the area once
+        cue('siren', TRACKS[0].tCross, () => sfxAlert(0.8));
+
         for (const tr of TRACKS) {
-          cue(`x${tr.id}`, tr.tCross, sfxAlert);
-          if (tr.kind === 'jet') cue(`j${tr.id}`, tr.tIn + 0.4, () => sfxJet(4.2));
           const b = BATTERIES.find((x) => x.id === tr.by)!;
+          const kp = arcAt(tr, 1);
+
+          // each airframe announces itself with its own signature
+          if (tr.kind === 'jet') {
+            const p = arcAt(tr, 0.35);
+            cue(`j${tr.id}`, tr.tIn + 0.3, () => sfxJet(5.0, Math.min(9, kmFrom(p.x, p.y))));
+          } else if (tr.kind === 'drone') {
+            const p = arcAt(tr, 0.4);
+            cue(`d${tr.id}`, tr.tIn + 0.5, () => sfxDrone(5.5, Math.min(8, kmFrom(p.x, p.y))));
+          } else if (tr.kind === 'ballistic') {
+            const p = arcAt(tr, 0.55);
+            cue(`s${tr.id}`, tr.tCross + 0.6, () => sfxSonicBoom(Math.min(70, kmFrom(p.x, p.y))));
+          }
+
           cue(`c${tr.id}`, b.tLock, sfxLock);
-          cue(`l${tr.id}`, launchT(tr), () => sfxLaunch(tr.by === 'S400' ? 1.3 : 0.85));
-          cue(`k${tr.id}`, tr.tKill, () => sfxIntercept(tr.kind === 'jet' ? 1.15 : 0.95));
+          cue(`l${tr.id}`, launchT(tr),
+            () => sfxLaunch(tr.by === 'S400' ? 1.35 : 0.85, kmFrom(b.x, b.y)));
+          cue(`k${tr.id}`, tr.tKill,
+            () => sfxIntercept(tr.by === 'S400' ? 1.25 : 0.9, kmFrom(kp.x, kp.y)));
         }
       }
 
@@ -278,6 +323,38 @@ export default function CinematicIntro({ onDone }: { onDone: () => void }) {
         g.textAlign = 'left';
       }
 
+      /* ---------- friendly combat air patrol (Rafale / Su-30MKI / MiG-21) ----------
+       * Drawn behind the threat layer so hostile tracks read on top. These
+       * orbit a racetrack over defended territory: they are ours, they are
+       * never engaged, and they establish that the airspace is held. */
+      for (const c of CAP) {
+        const u = (t * c.speed + c.phase) % 1;
+        // racetrack: right-to-left on the outbound leg, left-to-right back
+        const outbound = u < 0.5;
+        const v = outbound ? u * 2 : (1 - u) * 2;
+        const cx = 720 + v * 1150;
+        const cy = c.y + Math.sin(u * Math.PI * 4) * 14;
+        const hd = outbound ? 0 : Math.PI;
+
+        parts.contrail(cx - Math.cos(hd) * 20, cy);
+        parts.contrail(cx - Math.cos(hd) * 26, cy + 5);
+
+        g.save();
+        g.translate(cx, cy);
+        g.rotate(hd);
+        // mirror vertically on the return leg so the jet is never upside-down
+        if (!outbound) g.scale(1, -1);
+        drawJet(g, c.scale, false);
+        g.restore();
+
+        g.font = '12px ui-monospace, monospace';
+        g.textAlign = 'center';
+        g.lineWidth = 4; g.strokeStyle = '#03060b';
+        g.strokeText(c.name, cx, cy - 26);
+        g.fillStyle = '#7cc4ff'; g.fillText(c.name, cx, cy - 26);
+        g.textAlign = 'left';
+      }
+
       /* ---------- threats ---------- */
       for (const tr of TRACKS) {
         if (t < tr.tIn) continue;
@@ -344,19 +421,40 @@ export default function CinematicIntro({ onDone }: { onDone: () => void }) {
         }
         if (t > tr.tKill) continue;
         const f = Math.min(1, (t - lt) / (tr.tKill - lt));
-        const tp = arcAt(tr, 1);
-        // slight lofted lead so it arcs rather than tracking a ruler line
-        const mx = (b.x + tp.x) / 2, my = (b.y + tp.y) / 2 - 90;
-        const ix = (1 - f) * (1 - f) * b.x + 2 * (1 - f) * f * mx + f * f * tp.x;
-        const iy = (1 - f) * (1 - f) * b.y + 2 * (1 - f) * f * my + f * f * tp.y;
-        const f2 = Math.min(1, f + 0.03);
-        const nx = (1 - f2) * (1 - f2) * b.x + 2 * (1 - f2) * f2 * mx + f2 * f2 * tp.x;
-        const ny = (1 - f2) * (1 - f2) * b.y + 2 * (1 - f2) * f2 * my + f2 * f2 * tp.y;
-        const ia = Math.atan2(ny - iy, nx - ix);
 
-        parts.exhaust(ix, iy, ia, 1.0);
+        /* LEAD PURSUIT. The round is guided onto where the threat WILL BE,
+         * and the aim point is re-evaluated every frame against the target's
+         * live position — so as the threat flies on, the interceptor's nose
+         * visibly tracks it instead of committing to a stale point. This is
+         * the same principle as the in-app renderer: the airframe's heading
+         * is the tangent to the path it is actually flying. */
+        const uT = Math.min(1, (t - tr.tIn) / (tr.tKill - tr.tIn));
+        const tgtNow = arcAt(tr, uT);
+        const tgtKill = arcAt(tr, 1);
+        // blend from current target position toward the computed kill point as
+        // the round closes: early guidance chases, terminal guidance commits
+        const aim = {
+          x: tgtNow.x + (tgtKill.x - tgtNow.x) * f,
+          y: tgtNow.y + (tgtKill.y - tgtNow.y) * f,
+        };
+        const A = { x: b.x, y: b.y };
+        const loft = tr.by === 'S400' ? 0.19 : 0.11;
+        const side = tr.id.charCodeAt(1) % 2 === 0 ? 1 : -1;
+        const p = interceptorAt(A, aim, f, loft, side);
+        const ia = interceptorHeading(A, aim, f, loft, side);
 
-        g.save(); g.translate(ix, iy); g.rotate(ia);
+        // boost trail: the flown portion of the curve, so the smoke column
+        // follows the same arc the airframe took
+        g.beginPath();
+        for (let k = 0; k <= 26; k++) {
+          const q = interceptorAt(A, aim, (f * k) / 26, loft, side);
+          k ? g.lineTo(q.x, q.y) : g.moveTo(q.x, q.y);
+        }
+        g.strokeStyle = 'rgba(125,200,255,0.30)'; g.lineWidth = 2.4; g.stroke();
+
+        parts.exhaust(p.x, p.y, ia, 1.15);
+
+        g.save(); g.translate(p.x, p.y); g.rotate(ia);
         drawInterceptor(g, 1.45);
         g.restore();
       }

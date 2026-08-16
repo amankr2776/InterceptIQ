@@ -110,6 +110,7 @@ export class Particles {
 
   /** Launch signature: ground dust ring, smoke tower, muzzle flash. */
   launchPlume(x: number, y: number) {
+    this.shock(x, y, 0.45);
     for (let i = 0; i < 26; i++) {
       const a = Math.PI + (Math.random() - 0.5) * Math.PI * 1.5;
       const s = 60 + Math.random() * 190;
@@ -131,8 +132,27 @@ export class Particles {
     }
   }
 
+  /**
+   * Expanding shock ring — the compressed-air front. Rendered as a fast,
+   * thin, very short-lived additive ring rather than a particle, because a
+   * blast wave is a discontinuity and reads wrong as a soft blob. This is the
+   * single strongest cue that an explosion is an explosion and not a flare.
+   */
+  rings: { x: number; y: number; r: number; v: number; life: number; max: number; w: number }[] = [];
+
+  shock(x: number, y: number, scale = 1) {
+    this.rings.push({
+      x, y, r: 4 * scale, v: 620 * scale, life: 0.55, max: 0.55, w: 3.4 * scale,
+    });
+    // a second, slower ring: the reflected/secondary front
+    this.rings.push({
+      x, y, r: 2 * scale, v: 250 * scale, life: 0.85, max: 0.85, w: 1.8 * scale,
+    });
+  }
+
   /** Warhead detonation: flash core, fireball, cooling fragments, ash. */
   detonate(x: number, y: number, scale = 1) {
+    this.shock(x, y, scale);
     for (let i = 0; i < 22; i++) {
       this.spawn({
         x, y,
@@ -189,6 +209,14 @@ export class Particles {
       p.vx *= d; p.vy *= d;
       p.x += p.vx * dt; p.y += p.vy * dt;
     }
+    const d = Math.max(0, dt);        // a negative step would shrink radii
+    for (let i = this.rings.length - 1; i >= 0; i--) {
+      const r = this.rings[i];
+      r.life -= d;
+      if (r.life <= 0) { this.rings.splice(i, 1); continue; }
+      r.r += r.v * d;
+      r.v *= Math.pow(0.28, d);       // the front decelerates hard
+    }
   }
 
   draw(g: CanvasRenderingContext2D) {
@@ -207,6 +235,25 @@ export class Particles {
         g.drawImage(S[p.kind], p.x - r, p.y - r, r * 2, r * 2);
       }
     }
+    /* Shock fronts last, additively, so they read as light rather than paint.
+     * Two concentric strokes give the front a bright core and a soft edge —
+     * a single-width circle looks like a UI ring. */
+    g.globalCompositeOperation = 'lighter';
+    for (const r of this.rings) {
+      const u = 1 - r.life / r.max;
+      const a = (1 - u) * (1 - u) * 0.75;
+      // arc() throws IndexSizeError on a negative radius; never let one through
+      if (a <= 0.004 || !(r.r > 0)) continue;
+      g.globalAlpha = a * 0.5;
+      g.lineWidth = r.w * (1 + u * 2.2);
+      g.strokeStyle = 'rgba(255,214,150,1)';
+      g.beginPath(); g.arc(r.x, r.y, r.r, 0, 7); g.stroke();
+      g.globalAlpha = a;
+      g.lineWidth = Math.max(0.6, r.w * (1 - u * 0.6));
+      g.strokeStyle = 'rgba(255,252,240,1)';
+      g.beginPath(); g.arc(r.x, r.y, r.r, 0, 7); g.stroke();
+    }
+
     g.globalAlpha = 1;
     g.globalCompositeOperation = 'source-over';
   }

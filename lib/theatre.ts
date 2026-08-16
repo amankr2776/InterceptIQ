@@ -54,6 +54,29 @@ export const SECTORS: Sector[] = [
   { id: 'JMU', name: 'Jammu',       lat: 32.7266, lon: 74.8570, radiusKm: 17, value: 8,  pop: 651_000,   kind: 'J&K — southern approach' },
   { id: 'LEH', name: 'Leh',         lat: 34.1526, lon: 77.5771, radiusKm: 16, value: 8,  pop: 30_000,    kind: 'Ladakh — high-altitude sector' },
   { id: 'DDN', name: 'Dehradun',    lat: 30.3165, lon: 78.0322, radiusKm: 16, value: 7,  pop: 803_000,   kind: 'Uttarakhand — hill border sector' },
+
+  // ---- Eastern & northeastern frontier: the Siliguri Corridor, the
+  // ---- Brahmaputra valley and the LAC facing Tibet, plus the Bangladesh
+  // ---- and Myanmar frontiers. India has publicly deployed S-400, MR-SAM
+  // ---- and Akash into this theatre; it is no longer a western-only problem.
+  { id: 'SIL', name: 'Siliguri Corridor', lat: 26.7271, lon: 88.3953, radiusKm: 20, value: 10, pop: 706_000,   kind: "West Bengal — the 22 km 'Chicken's Neck' land bridge" },
+  { id: 'GAU', name: 'Guwahati',    lat: 26.1445, lon: 91.7362, radiusKm: 20, value: 9,  pop: 1_120_000, kind: 'Assam — Brahmaputra valley hub' },
+  { id: 'TEZ', name: 'Tezpur',      lat: 26.6528, lon: 92.7926, radiusKm: 17, value: 8,  pop: 103_000,   kind: 'Assam — forward air base, LAC sector' },
+  { id: 'TAW', name: 'Tawang',      lat: 27.5860, lon: 91.8590, radiusKm: 15, value: 8,  pop: 11_000,    kind: 'Arunachal — high-altitude LAC sector' },
+  { id: 'GTK', name: 'Gangtok',     lat: 27.3314, lon: 88.6138, radiusKm: 15, value: 8,  pop: 100_000,   kind: 'Sikkim — Nathu La / Doklam approach' },
+  { id: 'SHL', name: 'Shillong',    lat: 25.5788, lon: 91.8933, radiusKm: 16, value: 7,  pop: 354_000,   kind: 'Meghalaya — eastern air command sector' },
+  { id: 'AGT', name: 'Agartala',    lat: 23.8315, lon: 91.2868, radiusKm: 15, value: 7,  pop: 522_000,   kind: 'Tripura — Bangladesh frontier salient' },
+  { id: 'IMP', name: 'Imphal',      lat: 24.8170, lon: 93.9368, radiusKm: 16, value: 7,  pop: 518_000,   kind: 'Manipur — Myanmar frontier sector' },
+  { id: 'DIB', name: 'Dibrugarh',   lat: 27.4728, lon: 94.9120, radiusKm: 16, value: 7,  pop: 154_000,   kind: 'Assam — upper Brahmaputra, oil & rail hub' },
+
+  // ---- Peninsular & maritime south: the Sri Lanka narrows, the Kerala coast
+  // ---- and the Bay of Bengal seaboard. Threats here are sea-launched cruise
+  // ---- and long-endurance UAV rather than ballistic.
+  { id: 'BBS', name: 'Bhubaneswar', lat: 20.2961, lon: 85.8245, radiusKm: 18, value: 7,  pop: 1_163_000, kind: 'Odisha — Bay of Bengal seaboard, test range belt' },
+  { id: 'VTZ', name: 'Visakhapatnam', lat: 17.6868, lon: 83.2185, radiusKm: 19, value: 9, pop: 2_358_000, kind: 'Andhra — Eastern Naval Command' },
+  { id: 'MDU', name: 'Madurai',     lat: 9.9252,  lon: 78.1198, radiusKm: 16, value: 7,  pop: 1_561_000, kind: 'Tamil Nadu — Palk Strait / Sri Lanka narrows' },
+  { id: 'TVM', name: 'Thiruvananthapuram', lat: 8.5241, lon: 76.9366, radiusKm: 17, value: 8, pop: 1_688_000, kind: 'Kerala — southern tip, space & naval complex' },
+  { id: 'PBL', name: 'Port Blair',  lat: 11.6234, lon: 92.7265, radiusKm: 15, value: 8,  pop: 141_000,   kind: 'Andaman & Nicobar — tri-service island command' },
 ];
 
 /**
@@ -125,6 +148,54 @@ export const THEATRES: Theatre[] = [
     sectors: ['DEL', 'AMB', 'HIS', 'JAI'],
     centre: { lat: 29.2, lon: 76.4 }, spanKm: 620,
     threatArc: [235, 325], originLabel: 'Western approach to the capital',
+  },
+  {
+    id: 'SILI', name: 'Siliguri Corridor', sub: "Siliguri · Gangtok · Kolkata — the Chicken's Neck",
+    sectors: ['SIL', 'GTK', 'KOL'],
+    centre: { lat: 26.2, lon: 88.2 }, spanKm: 640,
+    threatArc: [340, 130], originLabel: 'Tibet / Bangladesh convergent approach',
+  },
+  {
+    id: 'NE', name: 'Northeastern Theatre', sub: 'Guwahati · Tezpur · Shillong · Dibrugarh',
+    sectors: ['GAU', 'TEZ', 'SHL', 'DIB'],
+    centre: { lat: 26.5, lon: 92.6 }, spanKm: 780,
+    threatArc: [300, 60], originLabel: 'Northern LAC approach',
+  },
+  {
+    id: 'LAC', name: 'Eastern LAC — Arunachal', sub: 'Tawang · Tezpur · Dibrugarh',
+    sectors: ['TAW', 'TEZ', 'DIB'],
+    centre: { lat: 27.5, lon: 93.4 }, spanKm: 720,
+    threatArc: [320, 70], originLabel: 'Trans-Himalayan approach',
+  },
+  {
+    id: 'BGD', name: 'Bangladesh Frontier', sub: 'Agartala · Shillong · Kolkata',
+    sectors: ['AGT', 'SHL', 'KOL'],
+    centre: { lat: 24.4, lon: 90.3 }, spanKm: 720,
+    threatArc: [120, 260], originLabel: 'Eastern lowland approach',
+  },
+  {
+    id: 'MYN', name: 'Myanmar Frontier', sub: 'Imphal · Aizawl sector · Dibrugarh',
+    sectors: ['IMP', 'DIB', 'AGT'],
+    centre: { lat: 25.2, lon: 94.0 }, spanKm: 680,
+    threatArc: [60, 180], originLabel: 'Eastern hill approach',
+  },
+  {
+    id: 'BAY', name: 'Bay of Bengal Seaboard', sub: 'Visakhapatnam · Bhubaneswar · Chennai',
+    sectors: ['VTZ', 'BBS', 'CHN'],
+    centre: { lat: 17.5, lon: 84.0 }, spanKm: 820,
+    threatArc: [45, 150], originLabel: 'Bay of Bengal maritime approach',
+  },
+  {
+    id: 'SLK', name: 'Palk Strait & Southern Tip', sub: 'Madurai · Thiruvananthapuram · Bengaluru',
+    sectors: ['MDU', 'TVM', 'BLR'],
+    centre: { lat: 10.5, lon: 77.8 }, spanKm: 700,
+    threatArc: [100, 220], originLabel: 'Sri Lanka narrows / Indian Ocean approach',
+  },
+  {
+    id: 'AND', name: 'Andaman & Nicobar Command', sub: 'Port Blair · island chain',
+    sectors: ['PBL'],
+    centre: { lat: 11.6, lon: 92.7 }, spanKm: 620,
+    threatArc: [40, 200], originLabel: 'Andaman Sea / Malacca approach',
   },
 ];
 

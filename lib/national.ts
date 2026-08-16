@@ -32,6 +32,8 @@ export interface NationalBattery {
   rounds: number;
   active: boolean;
   layer: 'Long-range' | 'Medium-range' | 'Point defence' | 'BMD';
+  /** Which frontier this battery answers to. */
+  front: Front;
 }
 
 export interface NationalRadar {
@@ -49,34 +51,99 @@ export interface NationalRadar {
 const UNITS = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'Kilo', 'Lima', 'Mike', 'November'];
 
 /**
- * Border sectors — shortest warning time, densest coverage.
- * Rajasthan, Gujarat, Haryana, Punjab, J&K / Ladakh and the Uttarakhand hills.
+ * FRONTS
+ * ======
+ * The laydown is no longer western-only. Every land and maritime frontier gets
+ * its own posture, because the threat each faces is genuinely different and
+ * the systems India has publicly fielded on each differ accordingly.
+ *
+ *   WEST      Pakistan. Shortest warning, ballistic + cruise + drone
+ *             saturation. Densest layering, full BMD tier.
+ *   NORTH     China / LAC, high-altitude. Long-range + high-ceiling systems;
+ *             point defence matters less at 4 km elevation.
+ *   EAST      Siliguri Corridor, Bangladesh, Myanmar. India has publicly
+ *             deployed S-400, MR-SAM and Akash into the Siliguri sector.
+ *   MARITIME  Bay of Bengal, Palk Strait, Andamans. Sea-skimming cruise and
+ *             long-endurance UAV, so low-altitude capable systems dominate.
+ *   INTERIOR  Depth sectors with warning time; leaner posture.
  */
-const BORDER = new Set([
-  'AMR', 'LDH', 'JAL', 'PTH', 'JMU', 'SGR', 'LEH',   // Punjab + J&K
-  'JAI', 'JOD', 'BIK', 'BAR',                        // Rajasthan
-  'BHU', 'JAM', 'AHM',                               // Gujarat
-  'AMB', 'HIS',                                      // Haryana
-  'DDN',                                             // Uttarakhand
-]);
+export type Front = 'WEST' | 'NORTH' | 'EAST' | 'MARITIME' | 'INTERIOR';
+
+export const FRONT_OF: Record<string, Front> = {
+  // Pakistan frontier
+  AMR: 'WEST', LDH: 'WEST', JAL: 'WEST', PTH: 'WEST', JMU: 'WEST', SGR: 'WEST',
+  JAI: 'WEST', JOD: 'WEST', BIK: 'WEST', BAR: 'WEST',
+  BHU: 'WEST', JAM: 'WEST', AHM: 'WEST', AMB: 'WEST', HIS: 'WEST',
+  // China / LAC
+  LEH: 'NORTH', DDN: 'NORTH', TAW: 'NORTH', GTK: 'NORTH',
+  // Eastern frontier — Siliguri, Bangladesh, Myanmar
+  SIL: 'EAST', GAU: 'EAST', TEZ: 'EAST', SHL: 'EAST', AGT: 'EAST',
+  IMP: 'EAST', DIB: 'EAST', KOL: 'EAST',
+  // Maritime
+  VTZ: 'MARITIME', BBS: 'MARITIME', CHN: 'MARITIME', MDU: 'MARITIME',
+  TVM: 'MARITIME', PBL: 'MARITIME', MUM: 'MARITIME',
+  // Depth
+  DEL: 'INTERIOR', LKO: 'INTERIOR', BLR: 'INTERIOR', HYD: 'INTERIOR',
+};
+
+export const frontOf = (id: string): Front => FRONT_OF[id] ?? 'INTERIOR';
+
+export const FRONT_LABEL: Record<Front, string> = {
+  WEST: 'Western frontier — Pakistan',
+  NORTH: 'Northern frontier — China / LAC',
+  EAST: 'Eastern frontier — Siliguri, Bangladesh, Myanmar',
+  MARITIME: 'Maritime frontier — Bay of Bengal, Palk Strait, Andamans',
+  INTERIOR: 'Interior depth sectors',
+};
 
 /**
- * Layer template. Border sectors receive a long-range layer plus a doubled
- * medium/point-defence tier, because a threat crossing the frontier gives the
- * defender far less time than one detected deep inside national airspace.
+ * Layer template, chosen by front and by the value of the sector. Frontier
+ * sectors receive a long-range layer plus a doubled medium/point-defence
+ * tier, because a threat crossing the frontier gives the defender far less
+ * time than one detected deep inside national airspace.
  */
 function templateFor(value: number, id: string): string[] {
-  const border = BORDER.has(id);
-  if (value >= 10) return ['S400', 'AAD', 'MRSAM', 'AKASH', 'AKASH', 'QRSAM', 'SPYDER'];
-  if (value >= 9)  return border
-    ? ['S400', 'AAD', 'MRSAM', 'AKASH', 'AKASH', 'QRSAM', 'SPYDER']
-    : ['S400', 'MRSAM', 'AKASH', 'SPYDER'];
-  if (value >= 8)  return border
-    ? ['S400', 'MRSAM', 'AKASH', 'AKASH', 'QRSAM', 'SPYDER']
-    : ['MRSAM', 'AKASH', 'SPYDER', 'QRSAM'];
-  return border
-    ? ['MRSAM', 'AKASH', 'AKASH', 'QRSAM', 'SPYDER']
-    : ['AKASH', 'QRSAM', 'PECHORA'];
+  const front = frontOf(id);
+
+  switch (front) {
+    /* Pakistan front: the full stack. Ballistic threat is real, so the BMD
+     * tier is present at high-value sectors; drone saturation means two
+     * point-defence units per sector. */
+    case 'WEST':
+      if (value >= 9) return ['S400', 'AAD', 'MRSAM', 'AKASH', 'AKASH', 'QRSAM', 'SPYDER'];
+      if (value >= 8) return ['S400', 'MRSAM', 'AKASH', 'AKASH', 'QRSAM', 'SPYDER'];
+      return ['MRSAM', 'AKASH', 'AKASH', 'QRSAM', 'SPYDER'];
+
+    /* LAC: high terrain, long approach, thin air. Reach and ceiling matter
+     * more than magazine depth; Akash-Prime was trialled in Ladakh precisely
+     * for this. Fewer, longer-reaching units. */
+    case 'NORTH':
+      if (value >= 8) return ['S400', 'MRSAM', 'AKASH', 'QRSAM'];
+      return ['MRSAM', 'AKASH', 'QRSAM'];
+
+    /* Eastern frontier. S-400 in the Siliguri sector is publicly reported,
+     * alongside MR-SAM and Akash; the corridor is only ~22 km wide so its
+     * defence is dense out of proportion to its population. */
+    case 'EAST':
+      if (value >= 9) return ['S400', 'AAD', 'MRSAM', 'AKASH', 'AKASH', 'QRSAM', 'SPYDER'];
+      if (value >= 8) return ['S400', 'MRSAM', 'AKASH', 'QRSAM', 'SPYDER'];
+      return ['MRSAM', 'AKASH', 'QRSAM', 'SPYDER'];
+
+    /* Maritime: sea-skimmers and UAV. Low-altitude-capable systems
+     * (MR-SAM down to 50 m, SPYDER to 20 m, QRSAM to 30 m) do the work;
+     * a high-ceiling BMD tier would be spent on a threat that never climbs. */
+    case 'MARITIME':
+      if (value >= 9) return ['S400', 'MRSAM', 'MRSAM', 'AKASH', 'SPYDER', 'QRSAM'];
+      if (value >= 8) return ['MRSAM', 'MRSAM', 'AKASH', 'SPYDER', 'QRSAM'];
+      return ['MRSAM', 'AKASH', 'SPYDER', 'QRSAM'];
+
+    /* Depth: warning time is measured in minutes, not seconds. */
+    default:
+      if (value >= 10) return ['S400', 'AAD', 'MRSAM', 'AKASH', 'AKASH', 'QRSAM', 'SPYDER'];
+      if (value >= 9) return ['S400', 'MRSAM', 'AKASH', 'SPYDER'];
+      if (value >= 8) return ['MRSAM', 'AKASH', 'SPYDER', 'QRSAM'];
+      return ['AKASH', 'QRSAM', 'PECHORA'];
+  }
 }
 
 const layerOf = (role: InterceptorSpec['role']): NationalBattery['layer'] =>
@@ -101,10 +168,15 @@ export function buildNationalLaydown(seed = 20260816): NationalLaydown {
     const tmpl = templateFor(s.value, s.id);
     // ring the sector, biased toward the nearest threat axis
     const theatre = THEATRES.find((t) => t.sectors.includes(s.id));
+    /* Fall back to the front's own axis rather than a hardcoded 270°, which
+     * would have faced every eastern and southern battery back at Pakistan. */
+    const FRONT_AXIS: Record<Front, number> = {
+      WEST: 270, NORTH: 10, EAST: 80, MARITIME: 135, INTERIOR: 300,
+    };
     const arcMid = theatre
       ? ((theatre.threatArc[0] + (theatre.threatArc[1] < theatre.threatArc[0]
           ? theatre.threatArc[1] + 360 : theatre.threatArc[1])) / 2) % 360
-      : 270;
+      : FRONT_AXIS[frontOf(s.id)];
 
     tmpl.forEach((sysId, i) => {
       const spec = INTERCEPTORS.find((x) => x.id === sysId)!;
@@ -141,6 +213,7 @@ export function buildNationalLaydown(seed = 20260816): NationalLaydown {
         rounds: spec.readyRounds,
         active: true,
         layer: layerOf(spec.role),
+        front: frontOf(s.id),
       });
     });
 
@@ -174,6 +247,24 @@ export function buildNationalLaydown(seed = 20260816): NationalLaydown {
   }
 
   return { batteries, radars };
+}
+
+/** Aggregate a laydown by frontier, for the national dashboard. */
+export function frontStats(lay: NationalLaydown) {
+  const fronts: Front[] = ['WEST', 'NORTH', 'EAST', 'MARITIME', 'INTERIOR'];
+  return fronts.map((f) => {
+    const b = lay.batteries.filter((x) => x.front === f && x.active);
+    const sectors = new Set(b.map((x) => x.sectorId));
+    return {
+      front: f,
+      label: FRONT_LABEL[f],
+      batteries: b.length,
+      sectors: sectors.size,
+      rounds: b.reduce((a, x) => a + x.rounds, 0),
+      types: Array.from(new Set(b.map((x) => x.spec.name))).sort(),
+      maxRangeKm: Math.max(0, ...b.map((x) => x.spec.rangeKm[1])),
+    };
+  }).filter((x) => x.batteries > 0);
 }
 
 /** Aggregate coverage statistics for a sector. */

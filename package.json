@@ -22,5 +22,5 @@
     "tsx": "^4.23.12",
     "typescript": "^5"
   },
-  "description": "InterceptIQ \u2014 optimal interceptor launch-area allocation"
+  "description": "InterceptIQ — optimal interceptor launch-area allocation"
 }

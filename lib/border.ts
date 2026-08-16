@@ -137,7 +137,12 @@ export function exitDistanceKm(
   let firstOut: number | null = null;
   for (let d = stepKm; d <= maxKm; d += stepKm) {
     const p = project(aimLat, aimLon, bearingDeg, d);
-    const out = !inCountryTolerant(p.lat, p.lon, 'IND', 0.045);
+    /* Use the SAME tolerance the rest of the app uses for "is this India".
+     * A looser 0.045° band here let launch points sit 5-9 km outside the
+     * simplified ring but inside the tolerant test — which the territory
+     * audit then correctly flagged as hostile fire originating on Indian
+     * soil. Observed on the intricate Mizoram-Myanmar border. */
+    const out = !inCountryTolerant(p.lat, p.lon, 'IND', 0.08);
     if (out) {
       if (firstOut === null) firstOut = d;
       if (d - firstOut >= clearKm) return firstOut;
@@ -178,7 +183,7 @@ export function findHostileLaunch(
     if (low > rangeMaxKm) return null;
     const rangeKm = low + rnd() * (rangeMaxKm - low);
     const o = project(aimLat, aimLon, bearing, rangeKm);
-    if (inCountryTolerant(o.lat, o.lon, 'IND', 0.045)) return null;   // final guard
+    if (inCountryTolerant(o.lat, o.lon, 'IND', 0.08)) return null;    // final guard
     return { bearingFrom: bearing, rangeKm };
   };
 

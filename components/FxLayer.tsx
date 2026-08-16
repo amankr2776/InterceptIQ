@@ -4,7 +4,9 @@ import React, { useEffect, useRef } from 'react';
 import { Particles, Shake } from '@/lib/fx';
 import type { AllocationSolution, Scenario } from '@/lib/types';
 import { stateAt } from '@/lib/geometry';
-import { KM_LAT, kmLon } from '@/lib/scenario';
+import {
+  killTimes, shotPhase, interceptorAt, interceptorHeading, salvoSide, salvoLoft,
+} from '@/lib/flight';
 
 /**
  * IN-APP EFFECTS LAYER
@@ -65,7 +67,13 @@ export default function FxLayer({ sc, sol, t, playing, project, width, height }:
 
     let prev = performance.now();
     const frame = (now: number) => {
-      const dt = Math.min(0.05, (now - prev) / 1000);
+      /* Clamp to >= 0. rAF passes the timestamp of when the FRAME BEGAN,
+       * which can predate the performance.now() captured when this effect
+       * was set up — and this effect re-runs on every clock tick. That gave
+       * a negative dt on the first frame after each re-subscribe, which
+       * integrated shock-ring radii backwards past zero and threw
+       * IndexSizeError from arc(). */
+      const dt = Math.max(0, Math.min(0.05, (now - prev) / 1000));
       prev = now;
       const parts = P.current, sh = SH.current;
 
@@ -90,35 +98,41 @@ export default function FxLayer({ sc, sol, t, playing, project, width, height }:
         }
       }
 
-      /* ---- interceptor plumes, launch signatures, detonations ---- */
+      /* ---- interceptor plumes, launch signatures, detonations ----
+       * Uses the SAME flight model as the SVG map (lib/flight.ts), so the
+       * motor plume is emitted from the tail of the airframe the map is
+       * drawing, on the same lofted curve, and terminates at the same instant.
+       * Previously this integrated a straight chord while the map drew its
+       * own line, so plume and missile drifted apart on every long shot. */
+      const kt = killTimes(sol);
       for (const s of sol?.shots ?? []) {
         const a = sc.areas.find((x) => x.id === s.areaId);
         if (!a) continue;
         const o = s.option;
         const key = `${s.areaId}|${s.threatId}|${s.salvoIndex}`;
+        const ph = shotPhase(s, t, kt.get(s.threatId));
+        const bp = project(a.centroid.lat, a.centroid.lon);
+        const ip = project(o.interceptPoint.lat, o.interceptPoint.lon);
+        if (!bp || !ip) continue;
+        const side = salvoSide(s), loft = salvoLoft(s);
 
         if (t >= o.tLaunch && !fired.current.has(key)) {
           fired.current.add(key);
-          const bp = project(a.centroid.lat, a.centroid.lon);
-          if (bp) { parts.launchPlume(bp.x, bp.y); sh.kick(4); }
+          parts.launchPlume(bp.x, bp.y); sh.kick(5);
         }
 
-        if (t >= o.tLaunch && t < o.tIntercept) {
-          const bp = project(a.centroid.lat, a.centroid.lon);
-          const ip = project(o.interceptPoint.lat, o.interceptPoint.lon);
-          if (bp && ip) {
-            const f = Math.min(1, (t - o.tLaunch) / Math.max(0.1, o.tIntercept - o.tLaunch));
-            const x = bp.x + (ip.x - bp.x) * f;
-            const y = bp.y + (ip.y - bp.y) * f;
-            const ang = Math.atan2(ip.y - bp.y, ip.x - bp.x);
-            if (playing) parts.exhaust(x, y, ang, 0.75);
-          }
+        if (ph.state === 'flying') {
+          const p = interceptorAt(bp, ip, ph.f, loft, side);
+          const ang = interceptorHeading(bp, ip, ph.f, loft, side);
+          if (playing) parts.exhaust(p.x, p.y, ang, 0.85);
         }
 
-        if (t >= o.tIntercept && !blown.current.has(key)) {
+        // terminal kill, or self-destruct if another round got there first
+        if ((ph.state === 'terminal' || ph.state === 'destruct') && !blown.current.has(key)) {
           blown.current.add(key);
-          const ip = project(o.interceptPoint.lat, o.interceptPoint.lon);
-          if (ip) { parts.detonate(ip.x, ip.y, 0.7); sh.kick(11); }
+          const p = interceptorAt(bp, ip, ph.f, loft, side);
+          if (ph.aborted) { parts.detonate(p.x, p.y, 0.28); sh.kick(3); }
+          else { parts.detonate(p.x, p.y, 0.8); sh.kick(12); }
         }
       }
 

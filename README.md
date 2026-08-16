@@ -161,13 +161,34 @@ in one acoustic space. A wind bed keeps the silence between events from being de
 
 <div align="center">
 
-**24 defended sectors · 130 batteries · 24 radars · 130 M people covered**
+**38 defended sectors · 194 batteries · 38 radars · 140.5 M people covered**
 
 </div>
 
-Real Indian cities with real coordinates and populations, weighted toward the northwestern border
-belt — **Rajasthan · Gujarat · Haryana · Punjab · J&K · Uttarakhand**. Click any sector to drill
-into its laydown, any battery for its published specification, any radar for its coverage.
+Real Indian cities with real coordinates and populations. Click any sector to drill into its
+laydown, any battery for its published specification, any radar for its coverage.
+
+### 🧭 Every frontier, not just one
+
+The laydown is organised into **five fronts**, each with its own posture, because the threat on
+each is genuinely different and the systems India has publicly fielded on each differ accordingly.
+
+| Front | Batteries | Sectors | Posture |
+|:--|--:|--:|:--|
+| 🔴 **West** — Pakistan | 86 | 15 | Full stack incl. BMD tier. Shortest warning; ballistic + cruise + drone saturation |
+| 🟣 **North** — China / LAC | 15 | 4 | Reach and ceiling over magazine depth. Leh · Tawang · Gangtok · Dehradun |
+| 🟠 **East** — Siliguri, Bangladesh, Myanmar | 40 | 8 | S-400 + MR-SAM + Akash in the Siliguri sector, as publicly reported |
+| 🔵 **Maritime** — Bay of Bengal, Palk Strait, Andamans | 35 | 7 | Low-altitude capable systems for sea-skimmers and long-endurance UAV |
+| 🟢 **Interior** — depth sectors | 18 | 4 | Leaner posture; warning measured in minutes, not seconds |
+
+New sectors this release: **Siliguri Corridor · Guwahati · Tezpur · Tawang · Gangtok · Shillong ·
+Agartala · Imphal · Dibrugarh · Bhubaneswar · Visakhapatnam · Madurai · Thiruvananthapuram ·
+Port Blair**, with nine matching theatres — Siliguri Corridor, Northeastern Theatre, Eastern LAC,
+Bangladesh Frontier, Myanmar Frontier, Bay of Bengal, Palk Strait & Southern Tip, and the
+Andaman & Nicobar Command.
+
+Every battery is verified **on national soil** and **dispersed** — 0 of 194 off-soil, minimum
+pairwise separation 12.1 km, so no two fire units share an engagement geometry.
 
 ---
 
@@ -224,6 +245,58 @@ Everything computed live from the current scenario:
 
 ---
 
+## ◤ SOUND & VFX — WHY IT DOESN'T SOUND LIKE A GAME
+
+Every sound is **synthesised at runtime**. No sample files, nothing to download, works offline.
+
+The difference between a game explosion and a recorded one is not loudness — it is physics. Four
+things were rebuilt:
+
+**1 · A blast is a shock front, not a noise burst.**
+The detonation is an explicitly rendered pressure waveform — a **Friedlander N-wave**: an
+instantaneous rise to peak overpressure, exponential decay through zero into a *negative*
+underpressure phase, then recovery. That discontinuity at t=0 *is* the crack. Positive-phase
+duration scales with charge mass, so a 23 kg SPYDER warhead snaps at ~3 ms and a 700 kg TBM
+warhead thuds at ~26 ms.
+
+**2 · Distance is modelled, not faked with volume.**
+Sound travels 343 m/s and air absorbs high frequencies. Every cue now takes a **slant range in km**
+and derives its own arrival delay, air-absorption cutoff, amplitude and wet/dry balance. A 200 km
+exo-atmospheric kill arrives late, muffled and mostly as reverb tail; a terminal intercept overhead
+hits dry and hard. Previously every event sounded identical, which is exactly what makes audio
+read as synthetic.
+
+**3 · Ground reflection.**
+Real outdoor blasts have a second arrival a few milliseconds behind the direct one, bounced off
+the ground. That slap is what makes an explosion sound *outdoors*. Added as a delayed, filtered,
+per-channel-decorrelated copy.
+
+**4 · No tonal residue.**
+The jet and siren previously leaned on sawtooth oscillators, and a sustained sawtooth reads as
+"synth" to anybody. The **jet** is now pure broadband noise — shear-layer roar, turbulent core,
+and three detuned narrow resonances for the compressor face, all Dopplered through the pass. The
+**siren** is a summed chopper-wheel harmonic stack that spins up and coasts down. The **drone** is
+noise ring-modulated by a drifting blade-pass frequency. Rocket motors are amplitude-modulated at
+15–35 Hz by **combustion instability** — real motors chug, and that tearing quality is the tell.
+
+The only deliberately electronic cue is the **radar lock**, because that one genuinely is a console
+tone in the fire-control cabin rather than something happening in the sky.
+
+### ✨ Visual effects
+
+- **Shock fronts** — expanding additive rings with a bright core and soft edge, decelerating hard.
+  A blast wave is a discontinuity and reads wrong as a soft blob.
+- **Lofted fly-out** — interceptors fly a curved proportional-navigation path, not a chord, and the
+  airframe's nose is the **analytic tangent** to that curve, so it always points where it is
+  actually travelling. Verified in the live DOM: 36 airframes sampled, 0 misaligned, worst 2.44°.
+- **Salvo fan-out** — rounds in a salvo curve to alternating sides instead of stacking on one line.
+- **Friendly CAP** — Rafale, Su-30MKI and MiG-21 orbit a racetrack over defended territory in the
+  opening sequence. Indian types, so they fly on the defending side.
+- Frame-persistence motion blur, additive bloom, gravity-obeying cooling debris, muzzle flash
+  lighting the terrain, and camera shake kicked by each detonation.
+
+---
+
 ## ◤ THE ALGORITHM
 
 **Hungarian assignment** — a from-scratch O(n³) Jonker-Volgenant rectangular solver, equivalent to
@@ -276,15 +349,28 @@ Every one of these was a **real bug, found by measurement**:
 | `hard` tier crashed on **28 of 32** seeds | tier sweep | unchecked `find(...)!` |
 | **9.4 %** of batteries in Pakistan/China/sea | soil audit | bearing projected with no constraint |
 | Batteries stacked **2.4 km** apart | separation audit | placement unaware of other units |
+| **18.8 %** of shots flew at targets already destroyed | salvo timing sweep, worst lag **806 s** | renderer drew every round to its own aim point, ignoring that an earlier round in the salvo had already killed the threat — this is what made interceptors appear to fly the wrong way |
+| Hostile launches on Indian soil in the new NE theatres | territory audit after adding the eastern front | launch guard used a 0.045° tolerance while the audit used 0.08°, so points 5–9 km outside the simplified ring passed one test and failed the other |
+| Canvas `IndexSizeError` on every scrub | console capture during Playwright run | `requestAnimationFrame` passes the timestamp of when the frame *began*, which can predate setup time — negative `dt` integrated shock-ring radii below zero |
 
-### ✅ Standing audit — 81 scenarios / 404 threats
+### ✅ Standing audit — 204 scenarios / 1 132 threats · all 17 theatres × 4 tiers
 
 ```
-  ✓ crashes                     0        ✓ certified            81/81
-  ✓ batteries off soil      0/405        ✓ max solve           737 ms
-  ✓ polygon vertices off   0/2430        ✓ leakers               1.5 %
-  ✓ hostile origins in India    0        ✓ bad flight profiles      0
-  ✓ injected threats engaged 15/15       ✓ counterfactual order  intact
+  ✓ crashes                     0        ✓ certified          204/204
+  ✓ batteries off soil          0        ✓ max solve           194 ms
+  ✓ hostile origins in India    0        ✓ leakers               0.8 %
+  ✓ ghost rounds drawn     0/3 291       ✓ console errors           0
+```
+
+Plus, verified independently:
+
+```
+  ✓ solver geometry — 645 shots: intercept point vs the threat's own position
+    at that instant agrees to 0.00 km; battery→aim bearing vs battery→target
+    bearing agrees to 0.00°
+  ✓ track headings — 6 048 samples, 0 errors > 5°, worst 0.4°
+  ✓ interceptor airframes in the live DOM — 36 sampled, 0 misaligned, worst 2.44°
+  ✓ national laydown — 194 batteries, 0 off soil, min separation 12.1 km
 ```
 
 ---
@@ -321,7 +407,7 @@ expose the same engine as stateless serverless functions.
 ```
 lib/
 ├── 🗺️  region.json      Natural Earth borders · admin-1 · coast · cities (252 KB)
-├── 🌏  theatre.ts       region loader · 24 defended sectors · 10 theatres
+├── 🌏  theatre.ts       region loader · 38 defended sectors · 17 theatres
 ├── 🚀  systems.ts       interceptor + threat specifications, with sources
 ├── 🧭  border.ts        territory tests · hostile launch placement
 ├── 📍  siting.ts        battery siting: on-soil + dispersion solver
@@ -331,10 +417,11 @@ lib/
 ├── 🔒  allocator.ts     cost matrix · salvo waves · certified minimality search
 ├── ⚖️  compare.ts       counterfactual modes
 ├── 🚨  alert.ts         battery readiness state machine
-├── 🇮🇳  national.ts      all-India layered laydown
-├── ✨  fx.ts            sprite particle engine · camera shake
+├── 🇮🇳  national.ts      all-India laydown across five fronts
+├── 🛰️  flight.ts        interceptor flight model · salvo destruct logic
+├── ✨  fx.ts            sprite particles · shock fronts · camera shake
 ├── ✈️  vehicles.ts      canvas airframe silhouettes
-└── 🔊  audio.ts         synthesised ordnance audio + convolution reverb
+└── 🔊  audio.ts         physically-modelled ordnance audio (see below)
 
 components/
 ├── CinematicIntro   24 s scripted engagement on canvas

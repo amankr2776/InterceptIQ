@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import IndiaMap, { type NatSel } from '@/components/IndiaMap';
 import { Num, Stat, Pill, Bar } from '@/components/ui';
-import { buildNationalLaydown, sectorStats, type NationalBattery } from '@/lib/national';
+import { buildNationalLaydown, sectorStats, frontStats, type NationalBattery, type Front } from '@/lib/national';
 import { SECTORS, THEATRES } from '@/lib/theatre';
 import { INTERCEPTORS } from '@/lib/systems';
 import { dms } from '@/lib/format';
@@ -18,6 +18,15 @@ const LAYER_TOGGLES = [
   ['grid', 'Graticule'],
   ['labels', 'Country names'],
 ] as const;
+
+/** One colour per frontier, used by the coverage panel and the map legend. */
+const FRONT_COL: Record<Front, string> = {
+  WEST: 'var(--red)',
+  NORTH: 'var(--vio)',
+  EAST: 'var(--amb)',
+  MARITIME: 'var(--cy)',
+  INTERIOR: 'var(--grn)',
+};
 
 const layerCol = (l: NationalBattery['layer']) =>
   l === 'BMD' ? 'var(--vio)' : l === 'Long-range' ? 'var(--amb)'
@@ -192,6 +201,25 @@ export default function National() {
               </div>
             );
           })}
+          {/* Frontier breakdown — the laydown is no longer western-only, so
+              the panel has to show that every border is actually covered. */}
+          <div className="lbl" style={{ marginTop: 15, marginBottom: 6 }}>Coverage by frontier</div>
+          {frontStats(lay).map((f) => (
+            <div key={f.front} style={{ marginBottom: 9 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, marginBottom: 2 }}>
+                <span style={{ color: FRONT_COL[f.front] }}>{f.front}</span>
+                <span style={{ color: 'var(--txt)' }}>{f.batteries} btys · {f.sectors} sectors</span>
+              </div>
+              <Bar v={f.batteries} max={lay.batteries.length} c={FRONT_COL[f.front]} h={4} />
+              <div style={{ fontSize: 8.5, color: 'var(--dim2)', marginTop: 3, lineHeight: 1.5 }}>
+                {f.label}
+              </div>
+              <div style={{ fontSize: 8.5, color: 'var(--dim)', marginTop: 2, lineHeight: 1.5 }}>
+                {f.types.join(' · ')}
+              </div>
+            </div>
+          ))}
+
           <div className="lbl" style={{ marginTop: 15, marginBottom: 6 }}>Note</div>
           <div style={{ fontSize: 9, color: 'var(--dim2)', lineHeight: 1.6 }}>
             System types and their specifications are real and sourced from public

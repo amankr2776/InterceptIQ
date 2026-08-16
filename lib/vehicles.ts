@@ -107,12 +107,14 @@ export function drawCruise(g: CanvasRenderingContext2D, s: number) {
   g.restore();
 }
 
-/** Strike aircraft — swept wing, canted tails, twin nozzles. */
-export function drawJet(g: CanvasRenderingContext2D, s: number) {
+/** Strike aircraft — swept wing, canted tails, twin nozzles.
+ *  `hostile` tints the edge lines red (PAF/PLAAF types) or blue (IAF CAP). */
+export function drawJet(g: CanvasRenderingContext2D, s: number, hostile = true) {
+  const c = hostile ? '#8d3746' : '#4da3ff';
   g.save(); g.scale(s, s);
 
   g.globalCompositeOperation = 'lighter';
-  g.fillStyle = 'rgba(120,190,255,0.42)';
+  g.fillStyle = hostile ? 'rgba(255,160,90,0.42)' : 'rgba(120,190,255,0.42)';
   g.beginPath(); g.ellipse(-15, -2.2, 8, 2.2, 0, 0, 7); g.fill();
   g.beginPath(); g.ellipse(-15, 2.2, 8, 2.2, 0, 0, 7); g.fill();
   g.globalCompositeOperation = 'source-over';
@@ -121,7 +123,7 @@ export function drawJet(g: CanvasRenderingContext2D, s: number) {
   g.fillStyle = 'rgba(58,66,78,0.95)';
   g.beginPath(); g.moveTo(3, -3); g.lineTo(-12, -17); g.lineTo(-4, -17); g.lineTo(8, -3); g.closePath(); g.fill();
   g.beginPath(); g.moveTo(3, 3); g.lineTo(-12, 17); g.lineTo(-4, 17); g.lineTo(8, 3); g.closePath(); g.fill();
-  g.strokeStyle = '#8d3746'; g.lineWidth = 0.9;
+  g.strokeStyle = c; g.lineWidth = 0.9;
   g.beginPath(); g.moveTo(3, -3); g.lineTo(-12, -17); g.moveTo(3, 3); g.lineTo(-12, 17); g.stroke();
 
   // canted tails
@@ -138,7 +140,7 @@ export function drawJet(g: CanvasRenderingContext2D, s: number) {
   g.closePath();
   g.fillStyle = metal(g, 4.6, '#6a7280', '#333a45', '#171a20');
   g.fill();
-  g.strokeStyle = '#8d3746'; g.lineWidth = 1.15; g.stroke();
+  g.strokeStyle = c; g.lineWidth = 1.15; g.stroke();
 
   // canopy
   g.beginPath(); g.ellipse(8, -1.4, 4.6, 2.1, -0.12, 0, 7);
