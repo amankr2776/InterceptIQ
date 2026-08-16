@@ -9,6 +9,8 @@ import { useMission } from '@/lib/store';
 import { THEATRES } from '@/lib/theatre';
 import { dms } from '@/lib/format';
 import { batteryStatuses, airspaceViolated, networkAlert, STATE_COLOUR } from '@/lib/alert';
+import CompareBar from '@/components/CompareBar';
+import MissionSummary from '@/components/MissionSummary';
 
 const LAYERS = [
   ['tracks', 'Threat tracks'], ['predict', 'Predicted path'], ['engage', 'Interceptors'],
@@ -21,7 +23,10 @@ export default function Overview() {
   const {
     sc, sol, t, setT, tMax, playing, setPlaying, rate, setRate,
     load, addThreat, toggleSite, flash,
+    mode, setMode, results, busy, audio, setAudio, jumpToFirstEngagement,
   } = useMission();
+  const [showSummary, setShowSummary] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   const [sel, setSel] = useState<Sel>(null);
   const [addMode, setAddMode] = useState(false);
   const [cursor, setCursor] = useState<{ lat: number; lon: number } | null>(null);
@@ -36,14 +41,20 @@ export default function Overview() {
   const theatre = THEATRES.find((x) => x.id === sc.theatreId);
   const allStopped = m.leakers === 0;
   const statuses = batteryStatuses(sc, sol, t);
+  const lastImpact = Math.max(...sc.threats.map((x) => x.impact.t));
   const violators = airspaceViolated(sc, t);
   const netAlert = networkAlert(statuses);
   const statusOf = (id: string) => statuses.find((x) => x.areaId === id);
 
   return (
-    <div style={{ display: 'grid', gridTemplateRows: 'auto auto 1fr auto', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ display: 'grid', gridTemplateRows: 'auto auto auto 1fr auto', height: '100vh', overflow: 'hidden' }}>
       <Nav right={
         <>
+          <button onClick={() => setAudio(!audio)}
+            title={audio ? 'Mute audio cues' : 'Enable audio cues'}
+            style={{ padding: '5px 9px' }} className={audio ? 'on' : ''}>
+            {audio ? '♪ SFX ON' : '♪ SFX OFF'}
+          </button>
           <Pill label={`AD: ${netAlert}`}
             state={netAlert === 'READY' ? 'idle'
               : netAlert === 'FIRING' || netAlert === 'LOCKED' ? 'crit' : 'warn'} />
@@ -85,6 +96,8 @@ export default function Overview() {
         </div>
       </div>
 
+      <CompareBar mode={mode} onMode={setMode} results={results} busy={busy} />
+
       {/* ================= MAP ================= */}
       <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', minHeight: 0 }}>
         {/* slim, de-emphasised controls */}
@@ -115,8 +128,12 @@ export default function Overview() {
             <button className={playing ? 'on' : ''} style={{ flex: 1, fontSize: 9 }} onClick={() => setPlaying(!playing)}>
               {playing ? '❚❚' : '▶'} {playing ? 'Hold' : 'Run'}
             </button>
-            <button style={{ fontSize: 9 }} onClick={() => { setT(0); setPlaying(false); }}>↺</button>
+            <button style={{ fontSize: 9 }} onClick={() => { setT(0); setPlaying(false); setDismissed(false); }}>↺</button>
           </div>
+          <button style={{ width: '100%', marginTop: 3, fontSize: 8.5 }}
+            onClick={jumpToFirstEngagement} title="Skip to the first launch">
+            ⏭ Jump to first engagement
+          </button>
           <div style={{ display: 'flex', gap: 2, marginTop: 3 }}>
             {[1, 4, 10, 25].map((r) => (
               <button key={r} className={rate === r ? 'on' : ''} style={{ flex: 1, padding: '4px 0', fontSize: 8.5 }}
@@ -127,6 +144,14 @@ export default function Overview() {
             onChange={(e) => { setPlaying(false); setT(+e.target.value); }}
             style={{ width: '100%', marginTop: 7 }} />
           <div style={{ fontSize: 9, color: 'var(--dim2)', textAlign: 'center' }}>T+{t.toFixed(0)}s</div>
+
+          <div className="lbl" style={{ marginTop: 11, opacity: .75 }}>Threat volume</div>
+          <input type="range" min={2} max={14} step={1} value={sc.threats.length}
+            onChange={(e) => load(sc.tier === 'random' ? 'medium' : sc.tier, 42, sc.theatreId, +e.target.value)}
+            style={{ width: '100%', marginTop: 4 }} />
+          <div style={{ fontSize: 8, color: 'var(--dim2)', textAlign: 'center' }}>
+            {sc.threats.length} inbound · {(m.weightedProtection * 100).toFixed(0)}% held
+          </div>
 
           <div className="lbl" style={{ marginTop: 11, opacity: .75 }}>Map layers</div>
           {LAYERS.map(([k, l]) => (
@@ -201,6 +226,11 @@ export default function Overview() {
             T+{t.toFixed(1)}s
           </div>
 
+          {(showSummary || (t >= lastImpact && !dismissed && !playing)) && sol && (
+            <MissionSummary sc={sc} sol={sol} results={results}
+              onReplay={() => { setShowSummary(false); setDismissed(true); setT(0); setPlaying(true); }}
+              onClose={() => { setShowSummary(false); setDismissed(true); }} />
+          )}
           {flash && (
             <div className="fadein" style={{ position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)', background: 'rgba(6,10,15,.96)', border: '1px solid var(--amb)', color: 'var(--amb)', padding: '8px 15px', borderRadius: 2, fontSize: 10.5, whiteSpace: 'nowrap' }}>
               {flash}

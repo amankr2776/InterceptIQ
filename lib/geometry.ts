@@ -31,6 +31,9 @@ export interface SolveCtx {
    *  of the scenario being solved — using a stale global constant here silently
    *  places every intercept point hundreds of km from its true location. */
   origin: { lat0: number; lon0: number };
+  /** The protected asset this threat is aimed at. Engagement-point selection
+   *  prefers intercepts FAR from it (see the doctrine note below). */
+  asset?: { lat: number; lon: number };
 }
 
 export function solveEngagement(
@@ -105,6 +108,32 @@ export function solveEngagement(
     return { p, range, pk };
   };
 
+  /* ENGAGEMENT-POINT SELECTION — layered-defence doctrine.
+   *
+   * Maximising raw Pk alone drives the intercept toward the battery, because
+   * f_range rewards short shots. Batteries sit near what they defend, so that
+   * produced intercepts a few km from the city at low altitude with seconds
+   * to spare — the opposite of how air defence is actually fought.
+   *
+   * Doctrine is to kill as FAR from the protected asset as possible:
+   *   - debris falls short of the defended population
+   *   - a miss leaves time to re-engage (shoot-look-shoot)
+   *   - warhead effects never reach the asset
+   *
+   * So we score candidate points by Pk weighted toward standoff, while the
+   * REPORTED Pk stays the physical value at the chosen point. utility is a
+   * selection preference, not a claim about lethality. Points below 70% of
+   * the best available Pk are excluded so doctrine never buys a bad shot. */
+  const assetPt = ctx.asset;
+  const standoffKmOf = (p: LocalPoint) => {
+    if (!assetPt) return 0;
+    const g = toGeo(p, ctx.origin);
+    const dLat = (g.lat - assetPt.lat) * 110.574;
+    const dLon = (g.lon - assetPt.lon) * 111.32 * Math.cos((assetPt.lat * Math.PI) / 180);
+    return Math.hypot(dLat, dLon);
+  };
+
+  const cands: { t: number; p: LocalPoint; range: number; pk: number; standoff: number }[] = [];
   for (let i = 0; i < traj.length; i++) {
     const s = traj[i];
     if (s.t <= tLaunch) continue;
@@ -113,17 +142,32 @@ export function solveEngagement(
     if (!e) continue;
     windowStart = Math.min(windowStart, s.t);
     windowEnd = Math.max(windowEnd, s.t);
-    if (!hit || e.pk > hit.pk) hit = { t: s.t, p: e.p, range: e.range, pk: e.pk };
+    cands.push({ t: s.t, p: e.p, range: e.range, pk: e.pk, standoff: standoffKmOf(e.p) });
   }
 
-  if (hit) {
-    // Local refinement around the best sample (samples are 1 Hz)
-    const centre: number = hit.t;
+  if (cands.length) {
+    const bestPk = Math.max(...cands.map((c) => c.pk));
+    const floorPk = bestPk * 0.7;
+    const maxStand = Math.max(1, ...cands.map((c) => c.standoff));
+    let best = cands[0];
+    let bestU = -Infinity;
+    for (const c of cands) {
+      if (c.pk < floorPk) continue;
+      // 60% weight on lethality, 40% on how deep the intercept is
+      const u = 0.6 * (c.pk / bestPk) + 0.4 * (c.standoff / maxStand);
+      if (u > bestU) { bestU = u; best = c; }
+    }
+    hit = { t: best.t, p: best.p, range: best.range, pk: best.pk };
+
+    // sub-sample refinement around the chosen point, same utility
+    const centre = best.t;
     for (let d = -1; d <= 1; d += 0.1) {
-      const tt: number = centre + d;
+      const tt = centre + d;
       if (tt <= tLaunch) continue;
       const e = evalAt(tt);
-      if (e && e.pk > hit.pk) hit = { t: tt, p: e.p, range: e.range, pk: e.pk };
+      if (!e || e.pk < floorPk) continue;
+      const u = 0.6 * (e.pk / bestPk) + 0.4 * (standoffKmOf(e.p) / maxStand);
+      if (u > bestU) { bestU = u; hit = { t: tt, p: e.p, range: e.range, pk: e.pk }; }
     }
   }
 

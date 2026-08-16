@@ -14,6 +14,11 @@ export interface AllocOpts {
   areaSubset?: string[];
   /** Run the minimal-subset search (PS output c). */
   minimiseSites?: boolean;
+  /** Engagement posture.
+   *  'minimal'  — smallest certified subset (the PS deliverable)
+   *  'layered'  — every capable battery participates (operational realism)
+   *  'all'      — all sites, no subset search (naive baseline) */
+  posture?: 'minimal' | 'layered' | 'all';
   /** Acceptable loss of protection when dropping a site, as a fraction (0.02 = 2%). */
   subsetTolerance?: number;
 }
@@ -26,7 +31,11 @@ export function buildOptions(sc: Scenario, tNow: number, subset?: Set<string>) {
   const opts = new Map<string, EngagementOption>();
   for (const a of areas) {
     for (const t of sc.threats) {
-      const o = solveEngagement(a, t, { tNow, keepOutAltM: 250, origin: sc.aoi });
+      const tgtAsset = sc.assets.find((x) => x.id === t.targetAssetId) ?? sc.assets[0];
+      const o = solveEngagement(a, t, {
+        tNow, keepOutAltM: 250, origin: sc.aoi,
+        asset: tgtAsset ? { lat: tgtAsset.centroid.lat, lon: tgtAsset.centroid.lon } : undefined,
+      });
       if (o.feasible) {
         // How far from the PROTECTED ASSET is this threat destroyed?
         const asset = sc.assets.find((x) => x.id === t.targetAssetId) ?? sc.assets[0];
@@ -55,8 +64,8 @@ export function buildOptions(sc: Scenario, tNow: number, subset?: Set<string>) {
 export function allocate(sc: Scenario, opts: AllocOpts = {}): AllocationSolution {
   const t0 = Date.now();
   const tNow = opts.tNow ?? 0;
-  const salvoDepth = opts.salvoDepth ?? 2;
-  const pkTarget = opts.pkTarget ?? 0.9;
+  const salvoDepth = opts.salvoDepth ?? 3;
+  const pkTarget = opts.pkTarget ?? 0.95;
   const subset = opts.areaSubset ? new Set(opts.areaSubset) : undefined;
   const log: string[] = [];
 
@@ -64,6 +73,8 @@ export function allocate(sc: Scenario, opts: AllocOpts = {}): AllocationSolution
   log.push(`Considering ${areas.length} launch area(s), ${sc.threats.length} target(s) @ T+${tNow.toFixed(0)}s`);
 
   const remainingInv = new Map(areas.map((a) => [a.id, a.inventory]));
+  /** Rounds already committed per battery — drives the load-sharing term. */
+  const committed = new Map<string, number>(areas.map((a) => [a.id, 0]));
   const cum = new Map(sc.threats.map((t) => [t.id, 0]));
   const shots: Shot[] = [];
   const usedPair = new Set<string>();
@@ -90,7 +101,19 @@ export function allocate(sc: Scenario, opts: AllocOpts = {}): AllocationSolution
         if (o.tIntercept + delay > t.impact.t) return BIG;
         const decay = Math.exp(-delay / 45); // later rounds are worth less
         const marginal = o.pk * (1 - (cum.get(t.id) ?? 0)); // diminishing returns
-        return -(marginal * decay * t.rvValue);
+
+        /* LAYERED DEFENCE / LOAD SHARING.
+         * Without this the single longest-range battery wins nearly every
+         * pairing on raw Pk and fires most of the rounds, while capable
+         * medium- and short-range units sit idle. Real layered air defence
+         * distributes engagements so no one battery is saturated and each
+         * layer contributes. We apply a mild penalty as a battery commits
+         * more of its inventory, which breaks ties toward an unused unit
+         * without ever overriding a materially better shot. */
+        const committedFrac = (committed.get(area.id) ?? 0) / Math.max(1, area.inventory);
+        const share = 1 - 0.35 * committedFrac;
+
+        return -(marginal * decay * share * t.rvValue);
       })
     );
 
@@ -105,6 +128,7 @@ export function allocate(sc: Scenario, opts: AllocOpts = {}): AllocationSolution
       const inv = remainingInv.get(area.id) ?? 0;
       if (inv <= 0) continue;
       remainingInv.set(area.id, inv - 1);
+      committed.set(area.id, (committed.get(area.id) ?? 0) + 1);
       cum.set(th.id, 1 - (1 - (cum.get(th.id) ?? 0)) * (1 - o.pk));
       usedPair.add(`${area.id}|${th.id}|${wave}`);
       shots.push({ areaId: area.id, threatId: th.id, salvoIndex: wave, option: o });
@@ -203,6 +227,37 @@ export const EXHAUSTIVE_LIMIT = 14;
 
 export function allocateMinimalSet(sc: Scenario, opts: AllocOpts = {}): AllocationSolution {
   const t0 = Date.now();
+
+  /* LAYERED posture: skip the minimality search entirely and let every
+   * capable battery engage. This is what an operator would actually see —
+   * each defence layer contributing — as opposed to the minimal certified
+   * subset, which is the answer to the problem statement but deliberately
+   * switches surplus batteries off. */
+  if (opts.posture === 'layered' || opts.posture === 'all') {
+    const ids = sc.areas.filter((a) => a.active).map((a) => a.id);
+    const sol = allocate(sc, {
+      ...opts,
+      areaSubset: ids,
+      salvoDepth: opts.posture === 'layered' ? 4 : (opts.salvoDepth ?? 3),
+      pkTarget: opts.posture === 'layered' ? 0.995 : (opts.pkTarget ?? 0.95),
+      minimiseSites: false,
+    });
+    sol.selectedAreaIds = Array.from(new Set(sol.shots.map((s) => s.areaId)));
+    sol.consideredAreaIds = ids;
+    sol.certified = false;
+    sol.baselineProtection = sol.metrics.weightedProtection;
+    sol.threshold = sol.metrics.weightedProtection;
+    sol.metrics.solveMs = Date.now() - t0;
+    sol.metrics.sitesUsed = sol.selectedAreaIds.length;
+    sol.log = [
+      opts.posture === 'layered'
+        ? 'LAYERED posture — every capable battery engages; no minimality pruning'
+        : 'ALL-SITES posture — naive baseline using the full network',
+      ...sol.log,
+    ];
+    return sol;
+  }
+
   const tol = opts.subsetTolerance ?? 0.05;
   const all = sc.areas.filter((a) => a.active).map((a) => a.id);
   const log: string[] = [];
@@ -243,7 +298,7 @@ export function allocateMinimalSet(sc: Scenario, opts: AllocOpts = {}): Allocati
         if (o?.feasible && o.pk > best) best = o.pk;
       }
       // salvoDepth rounds at the same best Pk is the most optimistic case
-      const depth = opts.salvoDepth ?? 2;
+      const depth = opts.salvoDepth ?? 3;
       const cum = 1 - Math.pow(1 - best, depth);
       acc += cum * th.rvValue;
     }
@@ -262,7 +317,10 @@ export function allocateMinimalSet(sc: Scenario, opts: AllocOpts = {}): Allocati
       let testedAtK = 0;
       for (const cand of combinations(all, k)) {
         // Skip subsets that cannot reach tau even under the optimistic bound.
-        if (upperBound(cand) < tau - 1e-9) {
+        // 1.05 safety factor: the bound ignores reload cadence and rounding,
+        // so we only prune when a subset is clearly out of reach. Pruning an
+        // admissible subset would silently break the minimality proof.
+        if (upperBound(cand) * 1.05 < tau - 1e-9) {
           trace.push({ size: k, areaIds: cand, protection: 0, admissible: false, delta: -baseline, pruned: true });
           continue;
         }
