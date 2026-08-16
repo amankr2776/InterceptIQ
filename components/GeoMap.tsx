@@ -4,7 +4,7 @@ import type { AllocationSolution, Scenario } from '@/lib/types';
 import { stateAt } from '@/lib/geometry';
 import { region } from '@/lib/theatre';
 import { KM_LAT, kmLon } from '@/lib/scenario';
-import { ShieldIcon, BurstIcon, BatteryIcon, EngagementDefs, MissileBody, InterceptorBody, COL } from './symbols';
+import { ShieldIcon, BurstIcon, BatteryIcon, EngagementDefs, MissileBody, InterceptorBody, DroneIcon, launcherClassFor, COL } from './symbols';
 
 export type Sel =
   | { kind: 'threat'; id: string }
@@ -61,9 +61,18 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
   const geo = useMemo(() => {
     const path = (segs: [number, number][][], close: boolean) =>
       segs.map((s) => s.map((p, i) => `${i ? 'L' : 'M'}${PX(p[0]).toFixed(1)},${PY(p[1]).toFixed(1)}`).join('') + (close ? 'Z' : '')).join(' ');
+    // internal admin boundaries, grouped by parent country so each can be
+    // tinted to its national colour
+    const admByIso = new Map<string, string[]>();
+    for (const u of region.admin1) {
+      const arr = admByIso.get(u.iso) ?? [];
+      arr.push(path(u.r, true));
+      admByIso.set(u.iso, arr);
+    }
     return {
       countries: region.countries.map((c) => ({ ...c, d: path(c.rings, true) })),
       coast: path(region.coast, false),
+      admin: Array.from(admByIso.entries()).map(([iso, ds]) => ({ iso, d: ds.join(' ') })),
     };
   }, [PX, PY]);
 
@@ -148,19 +157,38 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
             stroke={NEIGHBOUR_LINE[c.iso] ?? '#2b4038'} strokeWidth={(c.iso === 'IND' ? 1.3 : .9) * iz}
             strokeOpacity={c.iso === 'IND' ? .8 : .45} />
         ))}
+        {/* internal state / province boundaries */}
+        {layers.states && geo.admin.map((a) => (
+          <path key={a.iso} d={a.d} fill="none"
+            stroke={NEIGHBOUR_LINE[a.iso] ?? '#2b4038'}
+            strokeWidth={0.7 * iz} strokeOpacity={a.iso === 'IND' ? .55 : .3}
+            strokeDasharray={`${2.5 * iz} ${2.5 * iz}`} />
+        ))}
         <path d={geo.coast} fill="none" stroke="#2f7ea6" strokeWidth={1.2 * iz} strokeOpacity=".65" />
 
+        {/* state / province names — only when zoomed in enough to be legible */}
+        {layers.states && view.z >= 1.9 && region.admin1
+          .filter((u) => u.a > 0.55)
+          .map((u) => (
+            <text key={u.iso + u.n} x={PX(u.c[0])} y={PY(u.c[1])}
+              fill={NEIGHBOUR_LINE[u.iso] ?? '#2b4038'} fontSize={8.5 * iz}
+              textAnchor="middle" opacity=".72" letterSpacing={.4 * iz}
+              stroke="#040910" strokeWidth={2.2 * iz} paintOrder="stroke">
+              {u.n.toUpperCase()}
+            </text>
+          ))}
+
         {/* country labels */}
-        {layers.labels && geo.countries.map((c) => {
-          const big = c.rings.reduce((a, b) => (a.length > b.length ? a : b), c.rings[0] ?? []);
-          if (!big?.length) return null;
-          const cx = big.reduce((s, p) => s + p[0], 0) / big.length;
-          const cy = big.reduce((s, p) => s + p[1], 0) / big.length;
-          return (
-            <text key={c.iso} x={PX(cx)} y={PY(cy)} fill={NEIGHBOUR_LINE[c.iso]} fontSize={15 * iz}
-              textAnchor="middle" letterSpacing={2 * iz} opacity=".38">{c.name.toUpperCase()}</text>
-          );
-        })}
+        {layers.labels && region.countryLabels.map((c) => (
+          <text key={c.iso} x={PX(c.c[0])} y={PY(c.c[1])}
+            fill={NEIGHBOUR_LINE[c.iso] ?? '#3a5c48'}
+            fontSize={17 * c.s * iz} textAnchor="middle"
+            letterSpacing={2.6 * c.s * iz} opacity={c.iso === 'IND' ? .5 : .62}
+            fontWeight={c.iso === 'IND' ? 700 : 500}
+            stroke="#040910" strokeWidth={3 * iz} paintOrder="stroke">
+            {c.n}
+          </text>
+        ))}
 
         {/* real cities */}
         {layers.places && region.cities.map((p) => (
@@ -242,7 +270,9 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                 stroke={col} strokeWidth={(hi ? 2.2 : 1.4) * iz} />
               <g transform={`translate(${cx},${cy}) scale(${iz})`}>
                 {/* launcher size scales with the class of system */}
-                <BatteryIcon s={a.maxSlantRange >= 150 ? 1.3 : a.maxSlantRange >= 60 ? 1.1 : 0.95} col={col} dead={!on} />
+                <BatteryIcon
+                  s={a.maxSlantRange >= 150 ? 1.15 : a.maxSlantRange >= 60 ? 1.0 : 0.9}
+                  col={col} dead={!on} kind={launcherClassFor(a.maxSlantRange)} />
                 {on && used && (
                   <circle r={a.maxSlantRange >= 150 ? 15 : 12} fill="none" stroke={col}
                     strokeWidth=".9" strokeOpacity=".5" strokeDasharray="2 3" />
@@ -318,7 +348,9 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                   {isSel && <circle cx={PX(st.p.lon)} cy={PY(st.p.lat)} r={18 * iz} fill="none" stroke={COL.asset} strokeWidth={iz} strokeDasharray={`${3 * iz} ${3 * iz}`} />}
                   <g transform={`translate(${PX(st.p.lon)},${PY(st.p.lat)}) scale(${iz})`}>
                     <g transform={`rotate(${headingAt(th, t)})`}>
-                      <MissileBody cls={th.cls} s={1.05} />
+                      {th.cls === 'DRONE'
+                        ? <DroneIcon s={1.0} />
+                        : <MissileBody cls={th.cls} s={1.05} />}
                     </g>
                     <text x="15" y="-5" fill="#ffb3ba" fontSize="10.5"
                       stroke="#040910" strokeWidth="2.6" paintOrder="stroke">{th.callsign}</text>

@@ -29,7 +29,8 @@ export type ThreatClass =
   | 'SRBM'      // short-range ballistic missile
   | 'MRBM'      // medium-range ballistic missile
   | 'TBM'       // tactical ballistic missile
-  | 'CRUISE';   // depressed / quasi-ballistic profile
+  | 'CRUISE'    // terrain-hugging land-attack cruise missile
+  | 'DRONE';    // fixed-wing UAV / loitering munition
 
 /** PS input (a): "Set of Ballistic Missile Trajectories of targets,
  *  each represented by a point (Latitude, Longitude, Altitude)". */

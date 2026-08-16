@@ -49,9 +49,16 @@ export default function IndiaMap({ lay, sel, onSel, hover, onHover, layers, onCu
   const geo = useMemo(() => {
     const path = (segs: [number, number][][], close: boolean) =>
       segs.map((s) => s.map((p, i) => `${i ? 'L' : 'M'}${PX(p[0]).toFixed(1)},${PY(p[1]).toFixed(1)}`).join('') + (close ? 'Z' : '')).join(' ');
+    const admByIso = new Map<string, string[]>();
+    for (const u of region.admin1) {
+      const arr = admByIso.get(u.iso) ?? [];
+      arr.push(path(u.r, true));
+      admByIso.set(u.iso, arr);
+    }
     return {
       countries: region.countries.map((c) => ({ ...c, d: path(c.rings, true) })),
       coast: path(region.coast, false),
+      admin: Array.from(admByIso.entries()).map(([iso, ds]) => ({ iso, d: ds.join(' ') })),
     };
   }, [PX, PY]);
 
@@ -117,18 +124,29 @@ export default function IndiaMap({ lay, sel, onSel, hover, onHover, layers, onCu
           <path key={c.iso} d={c.d} fill={FILL[c.iso] ?? '#0e1310'} stroke={LINE[c.iso] ?? '#2b4038'}
             strokeWidth={(c.iso === 'IND' ? 1.5 : .9) * iz} strokeOpacity={c.iso === 'IND' ? .9 : .45} />
         ))}
+        {layers.states && geo.admin.map((a) => (
+          <path key={a.iso} d={a.d} fill="none" stroke={LINE[a.iso] ?? '#2b4038'}
+            strokeWidth={0.65 * iz} strokeOpacity={a.iso === 'IND' ? .5 : .28}
+            strokeDasharray={`${2.5 * iz} ${2.5 * iz}`} />
+        ))}
         <path d={geo.coast} fill="none" stroke="#2f7ea6" strokeWidth={1 * iz} strokeOpacity=".55" />
 
-        {layers.labels && geo.countries.filter((c) => c.iso !== 'IND').map((c) => {
-          const big = c.rings.reduce((a, b) => (a.length > b.length ? a : b), c.rings[0] ?? []);
-          if (!big?.length) return null;
-          const cx = big.reduce((s, p) => s + p[0], 0) / big.length;
-          const cy = big.reduce((s, p) => s + p[1], 0) / big.length;
-          return (
-            <text key={c.iso} x={PX(cx)} y={PY(cy)} fill={LINE[c.iso]} fontSize={13 * iz}
-              textAnchor="middle" letterSpacing={1.6 * iz} opacity=".45">{c.name.toUpperCase()}</text>
-          );
-        })}
+        {layers.states && view.z >= 1.6 && region.admin1
+          .filter((u) => u.a > 0.8)
+          .map((u) => (
+            <text key={u.iso + u.n} x={PX(u.c[0])} y={PY(u.c[1])}
+              fill={LINE[u.iso] ?? '#2b4038'} fontSize={8 * iz} textAnchor="middle"
+              opacity=".7" stroke="#040910" strokeWidth={2 * iz} paintOrder="stroke">
+              {u.n.toUpperCase()}
+            </text>
+          ))}
+
+        {layers.labels && region.countryLabels.map((c) => (
+          <text key={c.iso} x={PX(c.c[0])} y={PY(c.c[1])} fill={LINE[c.iso] ?? '#3a5c48'}
+            fontSize={15 * c.s * iz} textAnchor="middle" letterSpacing={2.4 * c.s * iz}
+            opacity={c.iso === 'IND' ? .42 : .6} fontWeight={c.iso === 'IND' ? 700 : 500}
+            stroke="#040910" strokeWidth={2.8 * iz} paintOrder="stroke">{c.n}</text>
+        ))}
 
         {/* graticule */}
         {layers.grid && (() => {

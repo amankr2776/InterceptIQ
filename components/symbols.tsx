@@ -53,14 +53,55 @@ export function BurstIcon({ s = 1, animate = true }: { s?: number; animate?: boo
   );
 }
 
-/** Battery / launcher glyph. */
-export function BatteryIcon({ s = 1, col = COL.intcp, dead = false }: { s?: number; col?: string; dead?: boolean }) {
+/**
+ * LAUNCHER SILHOUETTES — a TEL viewed from the side, drawn per system class so
+ * the map distinguishes a large long-range battery from a mobile point-defence
+ * vehicle at a glance.
+ *   'heavy'  S-400 / PAD / AAD  — 8x8 TEL, four erect canisters
+ *   'medium' MR-SAM / Akash     — 6x6 TEL, twin/quad canisters
+ *   'light'  QRSAM / SPYDER     — 4x4 vehicle, compact launcher
+ */
+export type LauncherClass = 'heavy' | 'medium' | 'light';
+
+export function launcherClassFor(rangeKm: number): LauncherClass {
+  return rangeKm >= 150 ? 'heavy' : rangeKm >= 60 ? 'medium' : 'light';
+}
+
+export function BatteryIcon({ s = 1, col = COL.intcp, dead = false, kind = 'medium' }:
+  { s?: number; col?: string; dead?: boolean; kind?: LauncherClass }) {
+  const hull = '#0c141f';
+  const wheels =
+    kind === 'heavy' ? [-7.4, -4.4, 4.4, 7.4]
+    : kind === 'medium' ? [-5.6, -2.6, 3.4, 6.2]
+    : [-4.4, 4.0];
+  const canisters =
+    kind === 'heavy' ? [-3.6, -1.2, 1.2, 3.6]
+    : kind === 'medium' ? [-2.2, 0.4, 2.8]
+    : [-1.4, 1.4];
+  const w = kind === 'heavy' ? 10.5 : kind === 'medium' ? 8.6 : 6.8;
+  const canH = kind === 'heavy' ? 11 : kind === 'medium' ? 9 : 7.2;
+
   return (
     <g transform={`scale(${s})`}>
-      <rect x="-6" y="-4.5" width="12" height="9" fill="#040910" stroke={col} strokeWidth="1.5" />
-      <path d="M-6,-4.5 L0,-10.5 L6,-4.5" fill="none" stroke={col} strokeWidth="1.5" />
-      <circle r="1.7" fill={col} />
-      {dead && <path d="M-9,-9 L9,9 M9,-9 L-9,9" stroke={COL.threat} strokeWidth="2" />}
+      {/* erect canisters, angled slightly back like a real TEL at readiness */}
+      <g transform="rotate(-13)">
+        {canisters.map((x, i) => (
+          <g key={i}>
+            <rect x={x - 0.85} y={-canH} width="1.7" height={canH} rx=".5"
+              fill={hull} stroke={col} strokeWidth=".9" />
+            <rect x={x - 0.85} y={-canH} width="1.7" height="1.9" fill={col} opacity=".9" />
+          </g>
+        ))}
+      </g>
+      {/* chassis */}
+      <path d={`M${-w},1.6 L${w},1.6 L${w - 1.4},-2.4 L${-w + 1.2},-2.4 Z`}
+        fill={hull} stroke={col} strokeWidth="1.15" strokeLinejoin="round" />
+      {/* cab */}
+      <path d={`M${-w},-2.4 L${-w + 3.2},-2.4 L${-w + 3.2},-5 L${-w + 0.9},-5 Z`}
+        fill={hull} stroke={col} strokeWidth="1" strokeLinejoin="round" />
+      {/* wheels */}
+      {wheels.map((x, i) => <circle key={i} cx={x} cy="2.6" r="1.5" fill="#05090f" stroke={col} strokeWidth=".9" />)}
+      {dead && <path d="M-11,-11 L11,11 M11,-11 L-11,11" stroke={COL.threat} strokeWidth="2.2" />}
     </g>
   );
 }
@@ -76,54 +117,88 @@ export function symbolPath(cls: string): string {
 }
 
 /**
- * MISSILE BODY — drawn nose-up in local space, rotated to the track heading by
- * the caller. Gives the map an actual vehicle rather than an abstract blip:
- * ballistic RVs are slim cones, cruise missiles have wings and a tail.
+ * MISSILE BODY — drawn nose-up in local space; the caller rotates it to the
+ * track heading. Ballistic RVs are slim finned cones with a blunt re-entry
+ * nose; cruise missiles carry a fuselage, mid-body wings, tailplane and an
+ * underslung intake. Detail is tuned to read correctly at map scale.
  */
 export function MissileBody({ cls, s = 1, col = COL.threat, hot = true }:
   { cls: string; s?: number; col?: string; hot?: boolean }) {
   const cruise = cls === 'CRUISE';
+  const body = '#1b2330';
+  const edge = '#55627a';
+
+  if (cruise) {
+    return (
+      <g transform={`scale(${s})`}>
+        {hot && (
+          <g className="plume">
+            <ellipse cy="12" rx="2.1" ry="7" fill="#ffb020" opacity=".38" />
+            <ellipse cy="9.5" rx="1.15" ry="4" fill="#fff0c9" opacity=".9" />
+          </g>
+        )}
+        {/* tailplane */}
+        <path d="M2.3,4.6 L5.4,7.4 L2.3,7.4 Z M-2.3,4.6 L-5.4,7.4 L-2.3,7.4 Z" fill={col} fillOpacity=".85" />
+        {/* main wings */}
+        <path d="M2.3,-2.2 L10.5,1.6 L10.5,3.0 L2.3,1.4 Z" fill={col} fillOpacity=".7" stroke={col} strokeWidth=".7" strokeLinejoin="round" />
+        <path d="M-2.3,-2.2 L-10.5,1.6 L-10.5,3.0 L-2.3,1.4 Z" fill={col} fillOpacity=".7" stroke={col} strokeWidth=".7" strokeLinejoin="round" />
+        {/* fuselage */}
+        <path d="M0,-11 C1.6,-9.4 2.4,-7 2.4,-4.6 L2.4,7.2 L-2.4,7.2 L-2.4,-4.6 C-2.4,-7 -1.6,-9.4 0,-11 Z"
+          fill={body} stroke={col} strokeWidth="1.25" strokeLinejoin="round" />
+        {/* dorsal intake */}
+        <path d="M-1.3,2.2 L1.3,2.2 L1.3,5.6 L-1.3,5.6 Z" fill={edge} opacity=".8" />
+        {/* seeker */}
+        <circle cy="-8.6" r="1.35" fill="#ffd7dc" />
+        <path d="M0,-11 L0,-7" stroke="#ffd7dc" strokeWidth=".6" opacity=".7" />
+      </g>
+    );
+  }
+
   return (
     <g transform={`scale(${s})`}>
-      {/* exhaust plume */}
       {hot && (
-        <g opacity=".9">
-          <path d={cruise ? 'M0,7 L2.2,16 L0,13 L-2.2,16 Z' : 'M0,9 L2.6,20 L0,16 L-2.6,20 Z'}
-            fill="#ffb020" opacity=".55" />
-          <path d={cruise ? 'M0,7 L1.2,12 L-1.2,12 Z' : 'M0,9 L1.4,15 L-1.4,15 Z'} fill="#fff0c9" />
+        <g className="plume">
+          <ellipse cy="15" rx="2.6" ry="9" fill="#ffb020" opacity=".4" />
+          <ellipse cy="11.5" rx="1.4" ry="5" fill="#fff3d6" opacity=".92" />
         </g>
       )}
-      {cruise ? (
-        <>
-          <path d="M0,-10 L2.6,-4 L2.6,7 L-2.6,7 L-2.6,-4 Z" fill="#2a3340" stroke={col} strokeWidth="1.3" strokeLinejoin="round" />
-          <path d="M2.6,-1 L9.5,2.5 L2.6,2.5 Z" fill={col} fillOpacity=".55" stroke={col} strokeWidth="1" />
-          <path d="M-2.6,-1 L-9.5,2.5 L-2.6,2.5 Z" fill={col} fillOpacity=".55" stroke={col} strokeWidth="1" />
-          <path d="M2.6,5 L5.5,7.5 L2.6,7.5 Z M-2.6,5 L-5.5,7.5 L-2.6,7.5 Z" fill={col} />
-          <circle cy="-7" r="1.5" fill="#ffd7dc" />
-        </>
-      ) : (
-        <>
-          <path d="M0,-12 L3,-3 L3,8 L-3,8 L-3,-3 Z" fill="#2a3340" stroke={col} strokeWidth="1.35" strokeLinejoin="round" />
-          <path d="M3,4 L7,9.5 L3,9.5 Z M-3,4 L-7,9.5 L-3,9.5 Z" fill={col} fillOpacity=".75" stroke={col} strokeWidth="1" />
-          <path d="M0,-12 L3,-3 L-3,-3 Z" fill={col} />
-          <circle cy="-9" r="1.4" fill="#ffd7dc" />
-        </>
-      )}
+      {/* grid fins */}
+      <path d="M2.9,3.4 L6.8,9 L2.9,9 Z M-2.9,3.4 L-6.8,9 L-2.9,9 Z"
+        fill={col} fillOpacity=".8" stroke={col} strokeWidth=".7" strokeLinejoin="round" />
+      {/* body: ogive nose into cylindrical section */}
+      <path d="M0,-13 C2,-10.4 3,-6.6 3,-3.4 L3,8.4 L-3,8.4 L-3,-3.4 C-3,-6.6 -2,-10.4 0,-13 Z"
+        fill={body} stroke={col} strokeWidth="1.3" strokeLinejoin="round" />
+      {/* re-entry heat band */}
+      <path d="M0,-13 C2,-10.4 3,-6.6 3,-3.4 L-3,-3.4 C-3,-6.6 -2,-10.4 0,-13 Z" fill={col} fillOpacity=".55" />
+      {/* stage joint */}
+      <path d="M-3,1.4 L3,1.4" stroke={edge} strokeWidth=".8" opacity=".85" />
+      <circle cy="-10" r="1.25" fill="#ffe3e7" />
     </g>
   );
 }
 
-/** INTERCEPTOR in flight — slim, blue, hot motor. Nose-up, caller rotates. */
+/**
+ * INTERCEPTOR in flight — slim, blue, canard-controlled, bright motor.
+ * Deliberately a different silhouette from any threat so the two can never be
+ * confused at a glance even in monochrome.
+ */
 export function InterceptorBody({ s = 1 }: { s?: number }) {
   return (
     <g transform={`scale(${s})`}>
-      <g opacity=".95">
-        <path d="M0,6 L2.4,18 L0,14 L-2.4,18 Z" fill={COL.intcp} opacity=".5" />
-        <path d="M0,6 L1.2,12 L-1.2,12 Z" fill="#dbeeff" />
+      <g className="plume">
+        <ellipse cy="13" rx="2.3" ry="8.5" fill={COL.intcp} opacity=".4" />
+        <ellipse cy="10" rx="1.2" ry="4.6" fill="#eaf5ff" opacity=".95" />
       </g>
-      <path d="M0,-10 L2.4,-3 L2.4,6 L-2.4,6 L-2.4,-3 Z" fill="#0d2237" stroke={COL.intcp} strokeWidth="1.35" strokeLinejoin="round" />
-      <path d="M2.4,2 L5.8,7.5 L2.4,7.5 Z M-2.4,2 L-5.8,7.5 L-2.4,7.5 Z" fill={COL.intcp} />
-      <path d="M0,-10 L2.4,-3 L-2.4,-3 Z" fill="#9fd0ff" />
+      {/* tail fins */}
+      <path d="M2.3,3.2 L5.6,8 L2.3,8 Z M-2.3,3.2 L-5.6,8 L-2.3,8 Z" fill={COL.intcp} />
+      {/* forward canards */}
+      <path d="M2.2,-5.2 L5.2,-3.4 L2.2,-2.6 Z M-2.2,-5.2 L-5.2,-3.4 L-2.2,-2.6 Z"
+        fill={COL.intcp} fillOpacity=".9" />
+      {/* body */}
+      <path d="M0,-11.5 C1.6,-9 2.3,-6 2.3,-3.2 L2.3,7 L-2.3,7 L-2.3,-3.2 C-2.3,-6 -1.6,-9 0,-11.5 Z"
+        fill="#0a1c2e" stroke={COL.intcp} strokeWidth="1.25" strokeLinejoin="round" />
+      <path d="M0,-11.5 C1.6,-9 2.3,-6 2.3,-3.2 L-2.3,-3.2 C-2.3,-6 -1.6,-9 0,-11.5 Z" fill="#9fd0ff" />
+      <circle cy="-8.8" r="1.15" fill="#ffffff" />
     </g>
   );
 }
@@ -134,27 +209,35 @@ export function RadarIcon({ s = 1, sweep = true }: { s?: number; sweep?: boolean
     <g transform={`scale(${s})`}>
       {sweep && (
         <g className="radar-sweep">
-          <path d="M0,0 L15,-9 A17.5,17.5 0 0 1 15,9 Z" fill={COL.radar} opacity=".16" />
+          <path d="M0,0 L16,-9.5 A18.5,18.5 0 0 1 16,9.5 Z" fill={COL.radar} opacity=".15" />
         </g>
       )}
-      <path d="M-7,6 L0,-8 L7,6 Z" fill="#12131f" stroke={COL.radar} strokeWidth="1.4" strokeLinejoin="round" />
-      <path d="M-9,6 h18" stroke={COL.radar} strokeWidth="1.6" strokeLinecap="round" />
-      <circle cy="-2" r="1.5" fill={COL.radar} />
+      <path d="M-7.5,6 L0,-8.5 L7.5,6 Z" fill="#12131f" stroke={COL.radar} strokeWidth="1.35" strokeLinejoin="round" />
+      <path d="M-4,1.5 L4,1.5" stroke={COL.radar} strokeWidth=".8" opacity=".7" />
+      <path d="M-9.5,6 h19" stroke={COL.radar} strokeWidth="1.7" strokeLinecap="round" />
+      <circle cy="-2.5" r="1.4" fill={COL.radar} />
     </g>
   );
 }
 
-/** Small UAV / drone planform. */
+/** Small fixed-wing UAV / loitering-munition planform, nose-up. */
 export function DroneIcon({ s = 1, col = COL.threat }: { s?: number; col?: string }) {
   return (
     <g transform={`scale(${s})`}>
-      <path d="M0,-8 L1.8,-2 L1.8,6 L-1.8,6 L-1.8,-2 Z" fill="#2a3340" stroke={col} strokeWidth="1.2" />
-      <path d="M-11,0 L11,0" stroke={col} strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M-4.5,6.5 L4.5,6.5" stroke={col} strokeWidth="1.3" strokeLinecap="round" />
-      <circle cy="-5.5" r="1.2" fill="#ffd7dc" />
+      {/* straight high-aspect wing */}
+      <path d="M-12,0.4 L12,0.4 L12,2 L-12,2 Z" fill={col} fillOpacity=".72" stroke={col} strokeWidth=".7" />
+      {/* fuselage */}
+      <path d="M0,-9 C1.3,-7.4 1.9,-5.4 1.9,-3.4 L1.9,6.5 L-1.9,6.5 L-1.9,-3.4 C-1.9,-5.4 -1.3,-7.4 0,-9 Z"
+        fill="#1b2330" stroke={col} strokeWidth="1.15" strokeLinejoin="round" />
+      {/* V-tail */}
+      <path d="M-1.9,5 L-5,8.2 L-1.9,8.2 Z M1.9,5 L5,8.2 L1.9,8.2 Z" fill={col} fillOpacity=".85" />
+      {/* pusher prop */}
+      <path d="M-2.6,8.6 L2.6,8.6" stroke={col} strokeWidth="1.5" strokeLinecap="round" opacity=".85" />
+      <circle cy="-6.4" r="1.2" fill="#ffd7dc" />
     </g>
   );
 }
+
 
 /** Arrow-marker defs — must be included once per <svg> that draws engagement lines. */
 export function EngagementDefs() {

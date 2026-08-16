@@ -28,10 +28,10 @@ const LAYDOWN: Record<string, string[]> = {
 };
 
 const THREAT_MIX: Record<string, string[]> = {
-  easy:   ['ABDALI', 'GHAZNAVI'],
-  medium: ['ABDALI', 'GHAZNAVI', 'BABUR', 'GHAURI'],
-  hard:   ['ABDALI', 'GHAZNAVI', 'BABUR', 'GHAURI', 'SHAHEEN2'],
-  random: ['ABDALI', 'GHAZNAVI', 'BABUR', 'GHAURI', 'SHAHEEN2'],
+  easy:   ['ABDALI', 'GHAZNAVI', 'LOITER'],
+  medium: ['ABDALI', 'GHAZNAVI', 'BABUR', 'GHAURI', 'SHAHPAR'],
+  hard:   ['ABDALI', 'GHAZNAVI', 'BABUR', 'GHAURI', 'SHAHEEN2', 'SHAHPAR', 'LOITER'],
+  random: ['ABDALI', 'GHAZNAVI', 'BABUR', 'GHAURI', 'SHAHEEN2', 'SHAHPAR', 'LOITER'],
 };
 
 const TIER: Record<string, { threats: [number, number]; areas: [number, number] }> = {
@@ -81,7 +81,7 @@ function propagate(
     });
   };
 
-  if (spec.cls === 'CRUISE') {
+  if (spec.cls === 'CRUISE' || spec.cls === 'DRONE') {
     const cruiseAlt = rng.range(spec.apogeeKm[0], spec.apogeeKm[1]) * 1000;
     const v = spec.terminalSpeedMs;
     /* Time compression for long standoff ingress. The geometry (where it was

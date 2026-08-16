@@ -1,3 +1,5 @@
+import type { ThreatClass } from './types';
+
 /**
  * REAL WEAPON-SYSTEM REFERENCE DATA
  * =================================
@@ -235,7 +237,7 @@ export const INTERCEPTORS: InterceptorSpec[] = [
 export interface ThreatSpec {
   id: string;
   name: string;
-  cls: 'SRBM' | 'MRBM' | 'TBM' | 'CRUISE';
+  cls: ThreatClass;
   category: string;
   rangeKm: [number, number];
   apogeeKm: [number, number];
@@ -282,6 +284,24 @@ export const THREATS: ThreatSpec[] = [
     rangeKm: [180, 200], apogeeKm: [40, 70], mach: 6, terminalSpeedMs: 2040,
     warheadKg: 500, guidance: 'INS, terminal manoeuvring',
     cepM: 150, source: 'Open-source (CSIS Missile Threat)',
+  },
+  {
+    id: 'SHAHPAR', name: 'Shahpar-II class', cls: 'DRONE',
+    category: 'Medium-altitude long-endurance armed UAV',
+    rangeKm: [300, 1050], apogeeKm: [3, 6], mach: 0.18,
+    terminalSpeedMs: 62, warheadKg: 60,
+    guidance: 'Satellite / line-of-sight datalink, EO-IR targeting',
+    cepM: 15, source: 'Open-source (manufacturer brochure, IISS Military Balance)',
+    note: 'Slow and low — long exposure to point defence, but easily missed by long-range SAMs.',
+  },
+  {
+    id: 'LOITER', name: 'Loitering munition', cls: 'DRONE',
+    category: 'One-way attack loitering munition',
+    rangeKm: [40, 200], apogeeKm: [1, 4], mach: 0.15,
+    terminalSpeedMs: 52, warheadKg: 20,
+    guidance: 'INS + GNSS with terminal EO seeker',
+    cepM: 8, source: 'Open-source (representative of fielded OWA-UAV classes)',
+    note: 'Small radar cross-section; typically engaged by point defence or guns.',
   },
   {
     id: 'BABUR', name: 'Babur class', cls: 'CRUISE',

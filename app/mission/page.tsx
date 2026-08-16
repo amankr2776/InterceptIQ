@@ -248,7 +248,7 @@ export default function MissionDetail() {
         </div>
         <div style={{ position: 'relative', minWidth: 0 }}>
           <GeoMap sc={sc} sol={sol} t={t} sel={sel} onSel={setSel} addMode={false}
-            onMapClick={() => {}} layers={{ tracks: true, predict: true, engage: true, rings: true, origins: false, altticks: true, grid: true, places: true, labels: true }} />
+            onMapClick={() => {}} layers={{ tracks: true, predict: true, engage: true, rings: true, origins: false, altticks: true, grid: true, places: true, labels: true, states: true }} />
           <div style={{ position: 'absolute', top: 8, left: 8 }}><MapLegend compact /></div>
         </div>
         <div style={{ borderLeft: '1px solid var(--line)', minHeight: 0, overflow: 'hidden' }}>

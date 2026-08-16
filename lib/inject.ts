@@ -81,7 +81,7 @@ export function injectThreat(
     });
   };
 
-  if (spec.cls === 'CRUISE') {
+  if (spec.cls === 'CRUISE' || spec.cls === 'DRONE') {
     const cruiseAlt = rng.range(spec.apogeeKm[0], spec.apogeeKm[1]) * 1000;
     const v = spec.terminalSpeedMs;
     /* A subsonic cruise missile flying its full published range takes 30+

@@ -5,6 +5,11 @@ export interface Region {
   countries: { name: string; iso: string; rings: [number, number][][] }[];
   coast: [number, number][][];
   cities: { n: string; x: number; y: number; pop: number; iso: string }[];
+  /** Admin-1 units: Indian states/UTs, Pakistani & Chinese provinces, etc.
+   *  n = name, iso = parent country, r = rings, c = label centroid, a = area */
+  admin1: { n: string; iso: string; r: [number, number][][]; c: [number, number]; a: number }[];
+  /** Hand-placed country label anchors so text sits in open space. */
+  countryLabels: { n: string; iso: string; c: [number, number]; s: number }[];
 }
 export const region = reg as unknown as Region;
 

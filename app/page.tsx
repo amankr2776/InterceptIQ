@@ -9,6 +9,13 @@ import { useMission } from '@/lib/store';
 import { THEATRES } from '@/lib/theatre';
 import { dms } from '@/lib/format';
 
+const LAYERS = [
+  ['tracks', 'Threat tracks'], ['predict', 'Predicted path'], ['engage', 'Interceptors'],
+  ['rings', 'Range rings'], ['origins', 'Launch points'], ['altticks', 'Altitude ticks'],
+  ['states', 'State boundaries'], ['labels', 'Country names'],
+  ['places', 'Cities'], ['grid', 'Graticule'],
+] as const;
+
 export default function Overview() {
   const {
     sc, sol, t, setT, tMax, playing, setPlaying, rate, setRate,
@@ -17,9 +24,9 @@ export default function Overview() {
   const [sel, setSel] = useState<Sel>(null);
   const [addMode, setAddMode] = useState(false);
   const [cursor, setCursor] = useState<{ lat: number; lon: number } | null>(null);
-  const [layers] = useState<Record<string, boolean>>({
+  const [layers, setLayers] = useState<Record<string, boolean>>({
     tracks: true, predict: true, engage: true, rings: true,
-    origins: true, altticks: true, grid: true, places: true, labels: true,
+    origins: true, altticks: true, grid: true, places: true, labels: true, states: true,
   });
 
   if (!sc || !sol) return <div style={{ padding: 30, color: 'var(--dim)' }}>INITIALISING…</div>;
@@ -112,6 +119,15 @@ export default function Overview() {
             onChange={(e) => { setPlaying(false); setT(+e.target.value); }}
             style={{ width: '100%', marginTop: 7 }} />
           <div style={{ fontSize: 9, color: 'var(--dim2)', textAlign: 'center' }}>T+{t.toFixed(0)}s</div>
+
+          <div className="lbl" style={{ marginTop: 11, opacity: .75 }}>Map layers</div>
+          {LAYERS.map(([k, l]) => (
+            <button key={k} className={layers[k] ? 'on' : ''}
+              style={{ width: '100%', marginTop: 2, textAlign: 'left', fontSize: 8, padding: '3px 5px' }}
+              onClick={() => setLayers((v) => ({ ...v, [k]: !v[k] }))}>
+              {layers[k] ? '✓' : '·'} {l}
+            </button>
+          ))}
 
           <div className="lbl" style={{ marginTop: 11, opacity: .75 }}>Judge controls</div>
           <button className={addMode ? 'on' : ''} style={{ width: '100%', marginTop: 4, fontSize: 8.5 }}

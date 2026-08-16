@@ -13,6 +13,7 @@ import Nav from '@/components/Nav';
 const LAYER_TOGGLES = [
   ['envelopes', 'Engagement envelopes'],
   ['radar', 'Radar coverage'],
+  ['states', 'State boundaries'],
   ['grid', 'Graticule'],
   ['labels', 'Country names'],
 ] as const;
@@ -28,7 +29,7 @@ export default function National() {
   const [hover, setHover] = useState<string | null>(null);
   const [cursor, setCursor] = useState<{ lat: number; lon: number } | null>(null);
   const [layers, setLayers] = useState<Record<string, boolean>>({
-    envelopes: true, radar: true, grid: true, labels: true,
+    envelopes: true, radar: true, grid: true, labels: true, states: true,
   });
   const { load } = useMission();
 
