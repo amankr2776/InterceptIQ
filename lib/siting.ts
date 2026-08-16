@@ -1,4 +1,4 @@
-// Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets
+// InterceptIQ
 import { inIndia } from './border';
 
 const KM_LAT = 110.574;

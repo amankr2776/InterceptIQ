@@ -22,5 +22,5 @@
     "tsx": "^4.23.12",
     "typescript": "^5"
   },
-  "description": "Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets"
+  "description": "InterceptIQ \u2014 optimal interceptor launch-area allocation"
 }

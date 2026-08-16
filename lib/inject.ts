@@ -1,4 +1,4 @@
-// Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets
+// InterceptIQ
 import { makeRng } from './rng';
 import { THREATS } from './systems';
 import { KM_LAT, kmLon } from './scenario';

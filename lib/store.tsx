@@ -1,5 +1,5 @@
 'use client';
-// Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets
+// InterceptIQ
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { generateScenario } from './scenario';
 import { allocate, allocateMinimalSet } from './allocator';

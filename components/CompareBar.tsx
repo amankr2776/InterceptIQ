@@ -1,5 +1,5 @@
 'use client';
-// Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets
+// InterceptIQ
 import React from 'react';
 import { MODES, type Mode, type ModeResult } from '@/lib/compare';
 import { COL } from './symbols';

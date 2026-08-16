@@ -1,5 +1,5 @@
 {
-  "_project": "Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets",
+  "_project": "InterceptIQ",
   "extends": [
     "next/core-web-vitals",
     "next/typescript"

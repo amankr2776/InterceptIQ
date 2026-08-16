@@ -1,6 +1,6 @@
 'use client';
-// Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets
-import React, { useState } from 'react';
+// InterceptIQ
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import GeoMap, { type Sel } from '@/components/GeoMap';
 import Nav from '@/components/Nav';
@@ -12,6 +12,7 @@ import { dms } from '@/lib/format';
 import { batteryStatuses, airspaceViolated, networkAlert, STATE_COLOUR } from '@/lib/alert';
 import CompareBar from '@/components/CompareBar';
 import MissionSummary from '@/components/MissionSummary';
+import CinematicIntro from '@/components/CinematicIntro';
 
 const LAYERS = [
   ['tracks', 'Threat tracks'], ['predict', 'Predicted path'], ['engage', 'Interceptors'],
@@ -28,6 +29,18 @@ export default function Overview() {
   } = useMission();
   const [showSummary, setShowSummary] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  /* Cinematic intro runs once per session. sessionStorage rather than a plain
+   * flag so a reload during a demo does not force the operator to sit through
+   * it again, while a fresh tab still gets the full sequence. */
+  const [intro, setIntro] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!sessionStorage.getItem('iq_intro_seen')) setIntro(true);
+  }, []);
+  const endIntro = useCallback(() => {
+    sessionStorage.setItem('iq_intro_seen', '1');
+    setIntro(false);
+  }, []);
   const [sel, setSel] = useState<Sel>(null);
   const [addMode, setAddMode] = useState(false);
   const [cursor, setCursor] = useState<{ lat: number; lon: number } | null>(null);
@@ -49,8 +62,11 @@ export default function Overview() {
 
   return (
     <div style={{ display: 'grid', gridTemplateRows: 'auto auto auto 1fr auto', height: '100vh', overflow: 'hidden' }}>
+      {intro && <CinematicIntro onDone={endIntro} />}
       <Nav right={
         <>
+          <button onClick={() => setIntro(true)} title="Replay the cinematic intro"
+            style={{ padding: '5px 9px' }}>▶ INTRO</button>
           <button onClick={() => setAudio(!audio)}
             title={audio ? 'Mute audio cues' : 'Enable audio cues'}
             style={{ padding: '5px 9px' }} className={audio ? 'on' : ''}>

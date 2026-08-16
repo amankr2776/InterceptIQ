@@ -1,4 +1,4 @@
-// Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets
+// InterceptIQ
 // Core domain types
 // Identification of optimal set of multiple interceptor launch areas
 // to maximise the destruction of multiple air targets

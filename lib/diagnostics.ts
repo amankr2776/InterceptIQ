@@ -1,4 +1,4 @@
-// Identification of optimal set of multiple interceptor launch areas to maximise the destruction of multiple air targets
+// InterceptIQ
 import type { AllocationSolution, Scenario } from './types';
 import { buildOptions } from './allocator';
 
