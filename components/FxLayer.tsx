@@ -132,8 +132,10 @@ export default function FxLayer({ sc, sol, t, playing, project, width, height }:
         if ((ph.state === 'terminal' || ph.state === 'destruct') && !blown.current.has(key)) {
           blown.current.add(key);
           const p = interceptorAt(bp, ip, ph.f, loft, side);
-          if (ph.aborted) parts.detonate(p.x, p.y, 0.22);
-          else parts.detonate(p.x, p.y, 0.55);
+          /* Airburst, not a fireball — an intercept at altitude has nothing
+           * to burn. A self-destruct is smaller still. */
+          if (ph.aborted) parts.airburst(p.x, p.y, 0.2);
+          else parts.airburst(p.x, p.y, 0.5);
         }
       }
 
@@ -146,6 +148,7 @@ export default function FxLayer({ sc, sol, t, playing, project, width, height }:
         if (t >= th.impact.t && !blown.current.has(key)) {
           blown.current.add(key);
           const ip = project(th.impact.p.lat, th.impact.p.lon);
+          // a leaker striking the ground DOES burn — keep the fireball here
           if (ip) parts.detonate(ip.x, ip.y, 0.9);
         }
       }

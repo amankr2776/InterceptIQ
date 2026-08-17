@@ -150,7 +150,54 @@ export class Particles {
     });
   }
 
-  /** Warhead detonation: flash core, fireball, cooling fragments, ash. */
+  /**
+   * INTERCEPT AIRBURST — a hit-to-kill / fragmentation kill at altitude.
+   *
+   * Deliberately NOT `detonate`. A warhead going off at 15-30 km is not a
+   * petrol fire: there is a brief brilliant flash, an expanding shock front,
+   * and a spray of cooling fragments that fades in under a second. There is
+   * no orange fireball and no rising ash column, because there is nothing up
+   * there to burn and no ground to throw up.
+   *
+   * The previous version reused the ground-explosion effect — orange 'fire'
+   * sprites plus a lingering 'ash' cloud — which is what made an intercept
+   * read as an arcade explosion rather than a kill.
+   */
+  airburst(x: number, y: number, scale = 1) {
+    this.shock(x, y, scale * 0.9);
+
+    // brief white-hot core — the flash, gone in ~0.2 s
+    for (let i = 0; i < 8; i++) {
+      this.spawn({
+        x, y,
+        vx: (Math.random() - 0.5) * 120 * scale,
+        vy: (Math.random() - 0.5) * 120 * scale,
+        life: 0.08 + Math.random() * 0.1, max: 0.2,
+        r0: 10 * scale, r1: 34 * scale, kind: 'hot', add: true, drag: 0.8,
+      });
+    }
+    // fragment spray: small, fast, cooling, no gravity arc worth seeing
+    for (let i = 0; i < 20; i++) {
+      const a = Math.random() * Math.PI * 2, s = 180 + Math.random() * 420;
+      this.spawn({
+        x, y, vx: Math.cos(a) * s * scale, vy: Math.sin(a) * s * scale,
+        life: 0.25 + Math.random() * 0.35, max: 0.6,
+        r0: 3 * scale, r1: 0.8, kind: 'hot', add: true, drag: 0.94,
+      });
+    }
+    // thin dissipating smoke puff — a smudge, not a column
+    for (let i = 0; i < 6; i++) {
+      const a = Math.random() * Math.PI * 2, s = 20 + Math.random() * 50;
+      this.spawn({
+        x, y, vx: Math.cos(a) * s * scale, vy: Math.sin(a) * s * scale,
+        life: 0.5 + Math.random() * 0.5, max: 1.0,
+        r0: 6 * scale, r1: 26 * scale, kind: 'smoke', drag: 0.95,
+      });
+    }
+  }
+
+  /** Ground detonation: flash core, fireball, cooling fragments, ash.
+   *  Used for a leaker striking the ground, where there IS something to burn. */
   detonate(x: number, y: number, scale = 1) {
     this.shock(x, y, scale);
     for (let i = 0; i < 22; i++) {

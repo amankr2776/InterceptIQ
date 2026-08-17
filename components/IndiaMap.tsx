@@ -129,6 +129,16 @@ export default function IndiaMap({ lay, sel, onSel, hover, onHover, layers, onCu
         </pattern>
         <radialGradient id="ndome"><stop offset="62%" stopColor="#38bdf8" stopOpacity=".05" /><stop offset="100%" stopColor="#38bdf8" stopOpacity=".22" /></radialGradient>
         <radialGradient id="nradar"><stop offset="88%" stopColor="#a78bfa" stopOpacity="0" /><stop offset="100%" stopColor="#a78bfa" stopOpacity=".055" /></radialGradient>
+        {/* Soft fill for a single radar's horizon. Drawn into a shared mask so
+          * overlapping sets UNION rather than stacking their alpha — otherwise
+          * the dense northwest turns into a solid violet blob while a
+          * single-radar stretch stays invisible. */}
+        <radialGradient id="nradarFill">
+          <stop offset="0%" stopColor="#a78bfa" stopOpacity=".05" />
+          <stop offset="70%" stopColor="#a78bfa" stopOpacity=".05" />
+          <stop offset="93%" stopColor="#a78bfa" stopOpacity=".16" />
+          <stop offset="100%" stopColor="#a78bfa" stopOpacity=".02" />
+        </radialGradient>
       </defs>
 
       <g transform={`translate(${view.x},${view.y}) scale(${view.z}) translate(${offX},${offY}) scale(${base})`}>
@@ -177,7 +187,23 @@ export default function IndiaMap({ lay, sel, onSel, hover, onHover, layers, onCu
           return out;
         })()}
 
-        {/* ---------- RADAR COVERAGE ---------- */}
+        {/* ---------- RADAR COVERAGE ----------
+          * The union of every radar horizon, drawn as ONE filled region.
+          * Previously each set was a 0.13-opacity dashed outline with no
+          * fill, which at national scale was effectively invisible — the
+          * Gujarat and Rajasthan frontier looked unwatched even though the
+          * geometry proves 0% of the borderline is outside radar cover.
+          * A single group with group-opacity means overlapping sets union
+          * instead of compounding, so coverage reads evenly everywhere. */}
+        {layers.radar && (
+          <g opacity=".42" style={{ pointerEvents: 'none' }}>
+            {lay.radars.map((r) => (
+              <circle key={'cov' + r.id} cx={PX(r.lon)} cy={PY(r.lat)}
+                r={r.detectKm * kmToPx} fill="url(#nradarFill)" />
+            ))}
+          </g>
+        )}
+
         {layers.radar && lay.radars.map((r) => {
           const on = selRadar === r.id || hover === r.sectorId;
           return (
@@ -185,7 +211,7 @@ export default function IndiaMap({ lay, sel, onSel, hover, onHover, layers, onCu
               onClick={(e) => { e.stopPropagation(); if (!drag.current?.moved) onSel({ kind: 'radar', id: r.id }); }}>
               <circle cx={PX(r.lon)} cy={PY(r.lat)} r={r.detectKm * kmToPx}
                 fill={on ? 'url(#nradar)' : 'none'}
-                stroke="#a78bfa" strokeOpacity={on ? .55 : .13} strokeWidth={(on ? 1.4 : .8) * iz}
+                stroke="#a78bfa" strokeOpacity={on ? .75 : .34} strokeWidth={(on ? 1.6 : 1) * iz}
                 strokeDasharray={`${10 * iz} ${9 * iz}`} />
               <g transform={`translate(${PX(r.lon)},${PY(r.lat)}) scale(${iz})`}>
                 <g transform={`scale(${ICON})`}>

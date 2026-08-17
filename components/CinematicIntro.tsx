@@ -404,7 +404,10 @@ export default function CinematicIntro({ onDone }: { onDone: () => void }) {
         } else if (!blown.current.has(tr.id)) {
           blown.current.add(tr.id);
           const q = arcAt(tr, 1);
-          parts.detonate(q.x, q.y, tr.kind === 'jet' ? 1.25 : 1.0);
+          /* Air kills are airbursts — flash, shock, fragments. The jet is
+           * hit low enough that its fuel does burn, so it keeps a fireball. */
+          if (tr.kind === 'jet') parts.detonate(q.x, q.y, 1.0);
+          else parts.airburst(q.x, q.y, 1.1);
           sh.kick(tr.kind === 'jet' ? 24 : 18);
         }
       }
