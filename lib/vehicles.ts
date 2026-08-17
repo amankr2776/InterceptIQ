@@ -28,7 +28,7 @@ export function drawBallistic(g: CanvasRenderingContext2D, s: number, hostile = 
 
   // exhaust nozzle glow
   g.globalCompositeOperation = 'lighter';
-  g.fillStyle = 'rgba(255,190,80,0.55)';
+  g.fillStyle = 'rgba(150,200,255,0.45)';   // cool efflux, not flame
   g.beginPath(); g.ellipse(-15, 0, 9, 3.4, 0, 0, 7); g.fill();
   g.globalCompositeOperation = 'source-over';
 
@@ -71,7 +71,7 @@ export function drawCruise(g: CanvasRenderingContext2D, s: number) {
   g.save(); g.scale(s, s);
 
   g.globalCompositeOperation = 'lighter';
-  g.fillStyle = 'rgba(255,190,80,0.45)';
+  g.fillStyle = 'rgba(150,200,255,0.38)';   // cool efflux, not flame
   g.beginPath(); g.ellipse(-13, 0, 7, 2.6, 0, 0, 7); g.fill();
   g.globalCompositeOperation = 'source-over';
 

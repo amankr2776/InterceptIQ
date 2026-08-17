@@ -135,8 +135,8 @@ export function MissileBody({ cls, s = 1, col = COL.threat, hot = true }:
       <g transform={`scale(${s})`}>
         {hot && (
           <g className="plume">
-            <ellipse cy="12" rx="2.1" ry="7" fill="#ffb020" opacity=".38" />
-            <ellipse cy="9.5" rx="1.15" ry="4" fill="#fff0c9" opacity=".9" />
+            <ellipse cy="12" rx="2.1" ry="7" fill="#8d94a6" opacity=".3" />
+            <ellipse cy="9.5" rx="1.15" ry="4" fill="#dbe3ee" opacity=".72" />
           </g>
         )}
         {/* tailplane */}
@@ -160,8 +160,8 @@ export function MissileBody({ cls, s = 1, col = COL.threat, hot = true }:
     <g transform={`scale(${s})`}>
       {hot && (
         <g className="plume">
-          <ellipse cy="15" rx="2.6" ry="9" fill="#ffb020" opacity=".4" />
-          <ellipse cy="11.5" rx="1.4" ry="5" fill="#fff3d6" opacity=".92" />
+          <ellipse cy="15" rx="2.6" ry="9" fill="#8d94a6" opacity=".32" />
+          <ellipse cy="11.5" rx="1.4" ry="5" fill="#dbe3ee" opacity=".75" />
         </g>
       )}
       {/* grid fins */}
@@ -234,15 +234,15 @@ export function GlideBody({ s = 1, col = COL.threat }: { s?: number; col?: strin
     <g transform={`scale(${s})`}>
       {/* plasma / shock heating around the leading edges */}
       <g className="plume">
-        <path d="M0,-13 L9,7 L-9,7 Z" fill="#ff7a3c" opacity=".28" />
-        <path d="M0,-11 L6.5,5 L-6.5,5 Z" fill="#ffd9a0" opacity=".42" />
+        <path d="M0,-13 L9,7 L-9,7 Z" fill="#9db8ff" opacity=".26" />
+        <path d="M0,-11 L6.5,5 L-6.5,5 Z" fill="#e6efff" opacity=".4" />
       </g>
       {/* lifting-body wedge */}
       <path d="M0,-12 L7.5,6.5 L4.5,8 L-4.5,8 L-7.5,6.5 Z"
         fill="#241820" stroke={col} strokeWidth="1.35" strokeLinejoin="round" />
       {/* hot leading edges */}
       <path d="M0,-12 L7.5,6.5 M0,-12 L-7.5,6.5"
-        stroke="#ffd2a8" strokeWidth="1.15" opacity=".95" />
+        stroke="#dfe9ff" strokeWidth="1.15" opacity=".9" />
       {/* control flaps */}
       <path d="M4.6,8 L7.4,11 L3.4,11 Z M-4.6,8 L-7.4,11 L-3.4,11 Z"
         fill={col} fillOpacity=".9" />
@@ -260,8 +260,8 @@ export function SupersonicBody({ s = 1, col = COL.threat }: { s?: number; col?: 
   return (
     <g transform={`scale(${s})`}>
       <g className="plume">
-        <ellipse cy="13" rx="2" ry="8.5" fill="#ffb020" opacity=".45" />
-        <ellipse cy="10" rx="1.05" ry="4.6" fill="#fff3d6" opacity=".95" />
+        <ellipse cy="13" rx="2" ry="8.5" fill="#8d94a6" opacity=".34" />
+        <ellipse cy="10" rx="1.05" ry="4.6" fill="#dbe3ee" opacity=".78" />
       </g>
       {/* cropped delta wings */}
       <path d="M1.9,0 L7.6,5.5 L7.6,7 L1.9,4 Z" fill={col} fillOpacity=".8" />

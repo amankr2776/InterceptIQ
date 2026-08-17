@@ -288,8 +288,9 @@ export default function CinematicIntro({ onDone }: { onDone: () => void }) {
           if (dtl >= 0 && dtl < 0.4) {
             const a = (1 - dtl / 0.4) * 0.85;
             const fl = g.createRadialGradient(b.x, b.y, 0, b.x, b.y, 300);
-            fl.addColorStop(0, `rgba(255,214,140,${a * 0.5})`);
-            fl.addColorStop(1, 'rgba(255,150,40,0)');
+            // launch bloom in interceptor blue, not a fire-orange muzzle flash
+            fl.addColorStop(0, `rgba(180,222,255,${a * 0.42})`);
+            fl.addColorStop(1, 'rgba(58,132,220,0)');
             g.globalCompositeOperation = 'lighter';
             g.beginPath(); g.arc(b.x, b.y, 300, 0, 7); g.fillStyle = fl; g.fill();
             g.globalCompositeOperation = 'source-over';
@@ -404,10 +405,9 @@ export default function CinematicIntro({ onDone }: { onDone: () => void }) {
         } else if (!blown.current.has(tr.id)) {
           blown.current.add(tr.id);
           const q = arcAt(tr, 1);
-          /* Air kills are airbursts — flash, shock, fragments. The jet is
-           * hit low enough that its fuel does burn, so it keeps a fireball. */
-          if (tr.kind === 'jet') parts.detonate(q.x, q.y, 1.0);
-          else parts.airburst(q.x, q.y, 1.1);
+          /* Every air kill is an airburst — flash, shock ring, fragments,
+           * all in the green of a successful intercept. No fireballs. */
+          parts.airburst(q.x, q.y, tr.kind === 'jet' ? 1.35 : 1.1);
           sh.kick(tr.kind === 'jet' ? 24 : 18);
         }
       }

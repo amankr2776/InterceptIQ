@@ -222,7 +222,7 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
       const x = cxp, h0 = top * iz, h1 = bot * iz, hw = HW * iz;
       let dy = 0;
       for (let k = 0; k < 18; k++) {
-        dy = k === 0 ? 0 : (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 11 * iz;
+        dy = k === 0 ? 0 : (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 15 * iz;
         // PAD is breathing room: two stacks that merely touch still read as
         // one smear, so treat near-adjacency as a collision too.
         const PAD = 5 * iz;
@@ -244,9 +244,13 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
       const lines = selT === th.id ? 3 : hovThreat === th.id ? 2 : 1;
       put('t:' + th.id, PX(st.p.lon), PY(st.p.lat), -12 * ICON, (-1 + lines * 11) * ICON);
     }
-    // 2. defended assets
+    /* 2. defended assets — reserve the SHIELD GLYPH as well as its caption.
+     * Previously only the text box was registered, so a battery label was
+     * free to slide on top of the shield of the city it defends (measured:
+     * "Akash Charlie" printing through the gold Delhi/Amritsar shield). The
+     * shield spans roughly -19..+15 local units around the centre. */
     for (const a of sc.assets) {
-      put('a:' + a.id, PX(a.centroid.lon), PY(a.centroid.lat), -25 * ICON, -13 * ICON);
+      put('a:' + a.id, PX(a.centroid.lon), PY(a.centroid.lat), -27 * ICON, 15 * ICON);
     }
     // 3. batteries, whose stack can run from the state line above the icon
     //    down through the inventory line below it
@@ -259,7 +263,7 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
        * is focused or offline, so the box shrinks accordingly. */
       const detail = selS === a.id || hovSite === a.id || !a.active;
       put("b:" + a.id, PX(a.centroid.lon), PY(a.centroid.lat),
-        -42, (detail ? 24 : 6) * ICON);
+        -48, (detail ? 24 : 4) * ICON);
     }
     return out;
   }, [live, sc.areas, sc.assets, statusById, selArea, selS, selT,
@@ -494,7 +498,7 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                     * the rest of this battery's label stack, otherwise it
                     * floats at a fixed height and lands on neighbouring
                     * asset names ("ALERT" through "AMRITSAR"). */}
-                  <text y={(-40 + (labelOffsets.get('b:' + a.id) ?? 0)) * iz}
+                  <text y={(-46 + (labelOffsets.get('b:' + a.id) ?? 0)) * iz}
                     fill={col} fontSize={8.5 * iz} textAnchor="middle"
                     letterSpacing={.6 * iz}
                     stroke="#040910" strokeWidth={2.4 * iz} paintOrder="stroke">
@@ -517,8 +521,13 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                   * actually inspecting or that is live-firing — printing
                   * "8 RDY · 400km" under every launcher collided with the
                   * threat labels and buried the engagement. */}
+                {/* Clear of the launcher glyph. The TEL's erect canisters
+                  * reach ~24 units above centre; the label sat at -15 and so
+                  * printed straight through them (measured 55 px^2 of overlap
+                  * on "Akash Charlie"). -30 puts the baseline above the
+                  * canister tips at every launcher size. */}
                 {(used || hi || !on || active) && (
-                  <text y={-15 * ICON + (labelOffsets.get('b:' + a.id) ?? 0)}
+                  <text y={-21 * ICON + (labelOffsets.get('b:' + a.id) ?? 0)}
                     fill={col} fontSize={10 * ICON} textAnchor="middle" fontWeight="600"
                     stroke="#040910" strokeWidth="2.8" paintOrder="stroke">{a.name}</text>
                 )}

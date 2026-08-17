@@ -341,6 +341,29 @@ noise ring-modulated by a drifting blade-pass frequency. Rocket motors are ampli
 The only deliberately electronic cue is the **radar lock**, because that one genuinely is a console
 tone in the fire-control cabin rather than something happening in the sky.
 
+### 🎨 No fire — effects that state the outcome
+
+There is not a single orange ember, fireball or ash cloud in the effects
+engine. An earlier version rendered explosions the way a game does, and
+against a cool blue-green console that reads as arcade rather than
+instrumentation.
+
+Every effect is now keyed to the app's **own legend**, so the colour of an
+event tells you what happened before you read a word:
+
+| Colour | Event | Meaning |
+|:--|:--|:--|
+| 🔵 Blue `#4da3ff` | launch bloom, motor efflux | interceptor away |
+| 🟢 Green `#34d399` | airburst flash + shock ring | **threat destroyed** |
+| 🔴 Red `#f43f5e` | ground burst | **a leaker got through** |
+| ⚪ Grey | thin residual trail | exhaust |
+
+Verified by sampling the effects canvas over 40 frames of a live engagement:
+**0 fire-coloured pixels**, 138 tactical green/blue.
+
+An intercept is now **18 particles clearing in 0.42 s** — it was 112 particles
+over 3.2 s, including 30 orange flame sprites and a 26-particle ash cloud.
+
 ### ✨ Visual effects
 
 - **Shock fronts** — expanding additive rings with a bright core and soft edge, decelerating hard.
