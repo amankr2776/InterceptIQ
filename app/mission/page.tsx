@@ -55,7 +55,7 @@ export default function MissionDetail() {
       <div style={{
         padding: 'var(--s3) var(--s4)', borderBottom: '1px solid var(--line)',
         background: 'linear-gradient(180deg, var(--panel2), var(--panel))',
-      }}>
+      }} className="raised">
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s5)', flexWrap: 'wrap' }}>
           <MiniStat label="Sites" v={`${sol.selectedAreaIds.length}/${sc.areas.length}`} c="var(--intcp)" />
           <MiniStat label="Rounds" v={`${m.interceptorsUsed}`} c="var(--txt)" />
@@ -66,7 +66,8 @@ export default function MissionDetail() {
         <div style={{ display: 'flex', gap: 'var(--s3)', alignItems: 'center', marginTop: 'var(--s3)' }}>
           <span className="lbl" style={{ whiteSpace: 'nowrap' }}>T+{t.toFixed(1)}s</span>
           <input type="range" min={0} max={tMax} step={0.25} value={Math.min(t, tMax)}
-            onChange={(e) => { setPlaying(false); setT(+e.target.value); }} style={{ flex: 1 }} />
+            onChange={(e) => { setPlaying(false); setT(+e.target.value); }}
+            style={{ flex: 1, ['--pct' as string]: `${(Math.min(t, tMax) / (tMax || 1)) * 100}%` }} />
         </div>
       </div>
 
@@ -289,7 +290,7 @@ function MiniStat({ label, v, c }: { label: string; v: string; c: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       <span className="lbl">{label}</span>
-      <span style={{ fontSize: 'var(--t-sub)', fontWeight: 600, color: c, lineHeight: 1.1 }}>{v}</span>
+      <span className="tnum" style={{ fontSize: 'var(--t-sub)', fontWeight: 600, color: c, lineHeight: 1.1 }}>{v}</span>
     </div>
   );
 }

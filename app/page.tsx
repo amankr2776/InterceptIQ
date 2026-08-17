@@ -107,7 +107,7 @@ export default function Overview() {
         padding: 'var(--s4) var(--s5) var(--s3)',
         borderBottom: '1px solid var(--line)',
         background: 'linear-gradient(180deg, var(--panel2), var(--panel))',
-      }}>
+      }} className="raised">
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s5)', flexWrap: 'wrap' }}>
 
           {/* HERO — the outcome */}
@@ -116,7 +116,7 @@ export default function Overview() {
             paddingLeft: 'var(--s3)',
             borderLeft: `3px solid ${allStopped ? 'var(--burst)' : 'var(--threat)'}`,
           }}>
-            <span style={{
+            <span className="tnum" style={{
               fontSize: 'var(--t-hero)', fontWeight: 700, lineHeight: 1,
               color: allStopped ? 'var(--burst)' : 'var(--threat)',
               letterSpacing: '-.02em',
@@ -194,7 +194,7 @@ export default function Overview() {
           <div style={{
             display: 'grid', gap: 2, marginTop: 'var(--s2)',
             maxHeight: 168, overflowY: 'auto', paddingRight: 2,
-          }}>
+          }} className="fade-b">
             {THEATRES.map((th) => (
               <button key={th.id} className={sc.theatreId === th.id ? 'on' : ''}
                 ref={sc.theatreId === th.id
@@ -228,9 +228,11 @@ export default function Overview() {
                 onClick={() => setRate(r)}>{r}×</button>
             ))}
           </div>
+          {/* --pct drives the amber fill on the restyled track */}
           <input type="range" min={0} max={tMax} step={0.5} value={Math.min(t, tMax)}
             onChange={(e) => { setPlaying(false); setT(+e.target.value); }}
-            style={{ width: '100%', marginTop: 'var(--s2)' }} />
+            style={{ width: '100%', marginTop: 'var(--s2)',
+              ['--pct' as string]: `${(Math.min(t, tMax) / (tMax || 1)) * 100}%` }} />
           <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim)', textAlign: 'center' }}>
             T+{t.toFixed(0)}s
           </div>
@@ -240,7 +242,8 @@ export default function Overview() {
           <div className="grouphead">Threat volume</div>
           <input type="range" min={2} max={14} step={1} value={sc.threats.length}
             onChange={(e) => load(sc.tier === 'random' ? 'medium' : sc.tier, 42, sc.theatreId, +e.target.value)}
-            style={{ width: '100%', marginTop: 'var(--s2)' }} />
+            style={{ width: '100%', marginTop: 'var(--s2)',
+              ['--pct' as string]: `${((sc.threats.length - 2) / 12) * 100}%` }} />
           <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim)', textAlign: 'center' }}>
             {sc.threats.length} inbound · {(m.weightedProtection * 100).toFixed(0)}% held
           </div>
@@ -408,7 +411,7 @@ function HeroStat({ label, v, sub, c }:
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <span className="lbl" style={{ fontSize: 'var(--t-micro)' }}>{label}</span>
       <span style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-        <span style={{ fontSize: 'var(--t-stat)', fontWeight: 600, color: c, lineHeight: 1 }}>{v}</span>
+        <span className="tnum" style={{ fontSize: 'var(--t-stat)', fontWeight: 600, color: c, lineHeight: 1 }}>{v}</span>
         <span style={{ fontSize: 'var(--t-micro)', color: 'var(--dim)' }}>{sub}</span>
       </span>
     </div>

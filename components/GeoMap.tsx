@@ -342,24 +342,71 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
       onClick={(e) => { if (addMode) { const p = toLL(e.clientX, e.clientY); onMapClick(p.lat, p.lon); } }}>
 
       <defs>
-        <pattern id="sea" width="34" height="34" patternUnits="userSpaceOnUse">
-          <rect width="34" height="34" fill="#051220" />
-          <path d="M0,17 q8.5,-4.5 17,0 t17,0" fill="none" stroke="#0a2033" strokeWidth=".7" />
+        {/* SEA — near-black with a barely-there swell. The old pattern used a
+          * #0a2033 wave on #051220, bright enough that open water competed
+          * with the tracks drawn over it. Water should be the quietest thing
+          * on the chart. */}
+        <pattern id="sea" width="46" height="46" patternUnits="userSpaceOnUse">
+          <rect width="46" height="46" fill="#05090f" />
+          <path d="M0,23 q11.5,-5 23,0 t23,0" fill="none" stroke="#0b1622" strokeWidth=".6" />
         </pattern>
-        <radialGradient id="dome"><stop offset="55%" stopColor="#ffc247" stopOpacity=".045" /><stop offset="100%" stopColor="#ffc247" stopOpacity=".17" /></radialGradient>
+
+        {/* LANDMASS DEPTH — a single soft vertical gradient laid over defended
+          * territory. A flat fill reads as a cut-out sticker; a hint of
+          * luminance falloff gives the country body without adding colour. */}
+        <linearGradient id="landShade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity=".030" />
+          <stop offset="55%" stopColor="#ffffff" stopOpacity=".008" />
+          <stop offset="100%" stopColor="#000000" stopOpacity=".16" />
+        </linearGradient>
+
+        {/* COASTAL GLOW — a soft inner halo just inside the shoreline, the
+          * cartographic convention that separates land from water without a
+          * heavy stroke. */}
+        <filter id="coastGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="7" />
+        </filter>
+
+        <radialGradient id="dome">
+          <stop offset="55%" stopColor="#ffc247" stopOpacity=".04" />
+          <stop offset="100%" stopColor="#ffc247" stopOpacity=".15" />
+        </radialGradient>
         <EngagementDefs />
         <filter id="gl"><feGaussianBlur stdDeviation="2.6" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+
+        {/* Clip so the shading and glow stay inside the national outline. */}
+        <clipPath id="indClip">
+          {geo.countries.filter((c) => c.iso === 'IND').map((c) => (
+            <path key={c.iso} d={c.d} />
+          ))}
+        </clipPath>
       </defs>
 
       <g transform={`translate(${view.x},${view.y}) scale(${view.z}) translate(${offX},${offY}) scale(${base})`}>
         <rect x={-V * 4} y={-V * 4} width={V * 9} height={V * 9} fill="url(#sea)" />
 
-        {/* ---------- REAL COUNTRIES ---------- */}
-        {geo.countries.map((c) => (
-          <path key={c.iso} d={c.d} fill={NEIGHBOUR_FILL[c.iso] ?? '#0e1310'}
-            stroke={NEIGHBOUR_LINE[c.iso] ?? '#2b4038'} strokeWidth={(c.iso === 'IND' ? 1.3 : .9) * iz}
-            strokeOpacity={c.iso === 'IND' ? .8 : .45} />
+        {/* ---------- REAL COUNTRIES ----------
+          * Neighbours first, then defended territory over the top, so India
+          * always wins the z-order at shared frontiers. */}
+        {geo.countries.filter((c) => c.iso !== 'IND').map((c) => (
+          <path key={c.iso} d={c.d} fill={NEIGHBOUR_FILL[c.iso]}
+            stroke={NEIGHBOUR_LINE[c.iso]} strokeWidth={.9 * iz} strokeOpacity={.45} />
         ))}
+        {geo.countries.filter((c) => c.iso === 'IND').map((c) => (
+          <path key={c.iso} d={c.d} fill={IND_FILL}
+            stroke={IND_LINE} strokeWidth={1.4 * iz} strokeOpacity={.85} />
+        ))}
+        {/* soft luminance falloff across the defended landmass */}
+        <g clipPath="url(#indClip)">
+          <rect x={-V * 4} y={-V * 4} width={V * 9} height={V * 9} fill="url(#landShade)" />
+        </g>
+        {/* inner coastal halo — sits inside the outline, reads as depth */}
+        <g clipPath="url(#indClip)" opacity=".5">
+          {geo.countries.filter((c) => c.iso === 'IND').map((c) => (
+            <path key={c.iso} d={c.d} fill="none" stroke="#4d97ad"
+              strokeWidth={7 * iz} filter="url(#coastGlow)" />
+          ))}
+        </g>
         {/* internal state / province boundaries */}
         {layers.states && geo.admin.map((a) => (
           <path key={a.iso} d={a.d} fill="none"
@@ -367,7 +414,7 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
             strokeWidth={0.7 * iz} strokeOpacity={a.iso === 'IND' ? .55 : .3}
             strokeDasharray={`${2.5 * iz} ${2.5 * iz}`} />
         ))}
-        <path d={geo.coast} fill="none" stroke="#2f7ea6" strokeWidth={1.2 * iz} strokeOpacity=".65" />
+        <path d={geo.coast} fill="none" stroke="#2c6b85" strokeWidth={1 * iz} strokeOpacity=".5" />
 
         {/* state / province names — only when zoomed in enough to be legible */}
         {layers.states && view.z >= 1.9 && region.admin1
@@ -593,7 +640,8 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
               {/* flown path — solid-ish red, fades once the threat is dead */}
               {layers.tracks && past.length > 1 && (
                 <polyline points={past.map(P).join(' ')} fill="none" stroke={COL.threat}
-                  strokeOpacity={killed ? .22 : .7} strokeWidth={(isSel ? 2.4 : 1.4) * iz} />
+                  strokeOpacity={killed ? .14 : .42} strokeWidth={(isSel ? 2 : 1.1) * iz}
+                  strokeLinecap="round" />
               )}
               {/* PREDICTED path to the protected asset — dashed + marching + arrowhead.
                   Direction of travel is unambiguous: it terminates at the asset. */}
@@ -651,21 +699,21 @@ export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, la
                       * class. The full name appears on hover or selection,
                       * and always in the Fire Plan and Event Log. */}
                     <text x={15 * ICON} y={-5 * ICON + (labelOffsets.get('t:' + th.id) ?? 0)}
-                      fill="#ff8f9d" fontSize={12.5 * ICON}
+                      fill="#ff9aa6" fontSize={12.5 * ICON}
                       fontWeight="700" letterSpacing=".4"
                       stroke="#040910" strokeWidth="3.2" paintOrder="stroke">
                       {th.callsign}
                     </text>
                     {(isSel || hovThreat === th.id) && (
                       <text x={15 * ICON} y={6.5 * ICON + (labelOffsets.get('t:' + th.id) ?? 0)}
-                        fill="#c8919b" fontSize={9.5 * ICON}
+                        fill="#d9a6ae" fontSize={9.5 * ICON}
                         stroke="#040910" strokeWidth="2.4" paintOrder="stroke">
                         {threatName(th.systemId, th.cls)}
                       </text>
                     )}
                     {isSel && (
                       <text x={15 * ICON} y={17 * ICON + (labelOffsets.get('t:' + th.id) ?? 0)}
-                        fill="#8a6268" fontSize={9 * ICON}
+                        fill="#a8848c" fontSize={9 * ICON}
                         stroke="#040910" strokeWidth="2.4" paintOrder="stroke">
                         {(st.p.alt / 1000).toFixed(0)}km · M{(st.speed / 340).toFixed(1)} → {th.targetAssetName}
                       </text>

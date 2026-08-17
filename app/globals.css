@@ -156,3 +156,55 @@ tbody tr:hover { background: rgba(255,255,255,.018); }
 
 @keyframes radarRing { 0%,100% { stroke-dashoffset: 0 } 100% { stroke-dashoffset: -40 } }
 .radar-ring { animation: radarRing 2.5s linear infinite; }
+
+/* ============================================================
+   DEPTH & FINISH
+   The console was uniformly flat: every panel the same value, every
+   border the same 1px line, no sense of which surface sits above
+   which. These are the finishing touches that make it feel built
+   rather than assembled — all of them subtractive and cheap.
+   ============================================================ */
+
+/* A hairline highlight along the top edge of raised surfaces. This is the
+   single most effective way to imply elevation on a dark UI without
+   resorting to drop shadows, which would look like a web page. */
+.raised {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+/* Selected map entity — a soft focus ring rather than a hard outline. */
+.sel-glow { filter: drop-shadow(0 0 5px rgba(255,176,32,.55)); }
+
+/* Panels that scroll get a fade at the edge so content clips softly
+   instead of being guillotined mid-row. */
+.fade-b {
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 18px), transparent);
+  mask-image: linear-gradient(180deg, #000 calc(100% - 18px), transparent);
+}
+
+/* Numeric readouts: slashed zero and fixed advance width so figures do not
+   jitter as they count. */
+.tnum { font-variant-numeric: tabular-nums slashed-zero; }
+
+/* Focus ring for keyboard users, consistent everywhere. */
+:focus-visible { outline: 1px solid var(--amb); outline-offset: 2px; }
+
+/* The scrub range input, restyled from the browser default so it belongs
+   to the same design language as everything around it. */
+input[type=range] {
+  -webkit-appearance: none; appearance: none;
+  height: 3px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--amb) var(--pct, 0%), var(--line2) var(--pct, 0%));
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--amb); border: 2px solid var(--bg);
+  box-shadow: 0 0 0 1px var(--amb);
+  cursor: pointer; transition: transform .1s ease;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.18); }
+input[type=range]::-moz-range-thumb {
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--amb); border: 2px solid var(--bg); cursor: pointer;
+}

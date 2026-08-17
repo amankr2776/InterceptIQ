@@ -374,6 +374,33 @@ territory in a cool slate-teal, everything else in one neutral graphite. The
 only saturated colour anywhere on the map is an engagement symbol, so the eye
 goes to the fight rather than the basemap.
 
+Three further passes give the chart depth rather than the flatness of a
+cut-out sticker:
+
+- **Inner coastal halo** — a soft blurred stroke clipped *inside* the national
+  outline, the standard cartographic device for separating land from water
+  without a heavy border.
+- **Landmass shading** — one subtle vertical luminance falloff across defended
+  territory, so the country has a body.
+- **Quieter water** — the sea swell was `#0a2033` on `#051220`, bright enough
+  that open ocean competed with the tracks drawn over it. Water should be the
+  quietest thing on the chart.
+- **Z-order fixed** — India now draws *over* its neighbours, so it always wins
+  at shared frontiers.
+
+**Engagement legibility.** The flown portion of a threat track rendered at 0.7
+opacity — nearly as loud as the live symbol — so a long track pulled the eye to
+where the threat *was* rather than where it *is*. Dropped to 0.42 with a
+rounded cap. Threat labels moved off muddy pink onto a warmer coral that holds
+up against the new cool basemap.
+
+**Finish.** A hairline top highlight on raised surfaces (the cheapest honest
+way to imply elevation on a dark UI — no drop shadows, which would look like a
+web page), tabular slashed-zero figures so counters do not jitter as they run,
+soft mask fades where panels scroll instead of guillotining a row mid-height,
+a consistent keyboard focus ring, and the browser-default range inputs
+replaced with amber-filled tracks that match the rest of the language.
+
 ### 🎨 No fire — effects that state the outcome
 
 There is not a single orange ember, fireball or ash cloud in the effects
