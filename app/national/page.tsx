@@ -97,7 +97,7 @@ export default function National() {
         {/* ---------- LEFT: SECTOR LIST ---------- */}
         <aside style={{ borderRight: '1px solid var(--line)', overflowY: 'auto', padding: 9, background: 'var(--panel)' }}>
           <div className="lbl">Defended Sectors</div>
-          <div style={{ fontSize: 8.5, color: 'var(--dim2)', margin: '4px 0 6px', lineHeight: 1.5 }}>
+          <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim2)', margin: '4px 0 6px', lineHeight: 1.5 }}>
             Click a sector on the map or here to inspect its air-defence laydown.
           </div>
           {SECTORS.map((s) => {
@@ -110,12 +110,12 @@ export default function National() {
                 className={on ? 'on' : ''}
                 style={{ width: '100%', textAlign: 'left', marginBottom: 3, padding: '6px 7px', lineHeight: 1.35 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 10 }}>{s.name}</span>
-                  <span style={{ fontSize: 8, color: st.offline ? 'var(--red)' : 'var(--dim2)' }}>
+                  <span style={{ fontSize: 'var(--t-small)' }}>{s.name}</span>
+                  <span style={{ fontSize: 'var(--t-micro)', color: st.offline ? 'var(--red)' : 'var(--dim2)' }}>
                     {st.batteries - st.offline}/{st.batteries}
                   </span>
                 </div>
-                <div style={{ fontSize: 7.5, color: 'var(--dim2)', textTransform: 'none', letterSpacing: 0 }}>
+                <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim2)', textTransform: 'none', letterSpacing: 0 }}>
                   {st.maxRangeKm} km · {(st.maxAltM / 1000).toFixed(0)} km alt · {st.rounds} rds
                 </div>
               </button>
@@ -125,7 +125,7 @@ export default function National() {
           <div className="lbl" style={{ marginTop: 12 }}>Layers</div>
           {LAYER_TOGGLES.map(([k, l]) => (
             <button key={k} className={layers[k] ? 'on' : ''}
-              style={{ width: '100%', marginTop: 3, textAlign: 'left', fontSize: 9, padding: '4px 6px' }}
+              style={{ width: '100%', marginTop: 3, textAlign: 'left', fontSize: 'var(--t-micro)', padding: '4px 6px' }}
               onClick={() => setLayers((s) => ({ ...s, [k]: !s[k] }))}>
               {layers[k] ? '✓' : '·'} {l}
             </button>
@@ -133,12 +133,12 @@ export default function National() {
 
           <div className="lbl" style={{ marginTop: 12 }}>Defence Layers</div>
           {(['BMD', 'Long-range', 'Medium-range', 'Point defence'] as const).map((l) => (
-            <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 8.5, color: 'var(--dim)' }}>
+            <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 'var(--t-micro)', color: 'var(--dim)' }}>
               <span style={{ width: 9, height: 9, border: `1.5px solid ${layerCol(l)}`, display: 'inline-block' }} />
               {l}
             </div>
           ))}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, fontSize: 8.5, color: 'var(--dim)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, fontSize: 'var(--t-micro)', color: 'var(--dim)' }}>
             <svg width="11" height="11" viewBox="-8 -8 16 16"><path d="M-6,5 L0,-7 L6,5 Z M-9,5 h18" fill="none" stroke="var(--vio)" strokeWidth="1.6" /></svg>
             Radar
           </div>
@@ -148,7 +148,7 @@ export default function National() {
             const n = lay.batteries.filter((b) => b.systemId === sp.id && b.active).length;
             if (!n) return null;
             return (
-              <div key={sp.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--dim)', padding: '1.5px 0' }}>
+              <div key={sp.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--t-micro)', color: 'var(--dim)', padding: '1.5px 0' }}>
                 <span>{sp.name}</span><span style={{ color: 'var(--txt)' }}>×{n}</span>
               </div>
             );
@@ -182,7 +182,7 @@ export default function National() {
       return (
         <div style={{ padding: 14 }}>
           <div className="lbl" style={{ marginBottom: 7 }}>National Overview</div>
-          <div style={{ fontSize: 10.5, color: 'var(--dim)', lineHeight: 1.7 }}>
+          <div style={{ fontSize: 'var(--t-small)', color: 'var(--dim)', lineHeight: 1.7 }}>
             Select a <b style={{ color: 'var(--cy)' }}>defended sector</b>, an{' '}
             <b style={{ color: 'var(--amb)' }}>interceptor battery</b> or a{' '}
             <b style={{ color: 'var(--vio)' }}>radar</b> on the map to see its full specification,
@@ -211,17 +211,17 @@ export default function National() {
                 <span style={{ color: 'var(--txt)' }}>{f.batteries} btys · {f.sectors} sectors</span>
               </div>
               <Bar v={f.batteries} max={lay.batteries.length} c={FRONT_COL[f.front]} h={4} />
-              <div style={{ fontSize: 8.5, color: 'var(--dim2)', marginTop: 3, lineHeight: 1.5 }}>
+              <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim2)', marginTop: 3, lineHeight: 1.5 }}>
                 {f.label}
               </div>
-              <div style={{ fontSize: 8.5, color: 'var(--dim)', marginTop: 2, lineHeight: 1.5 }}>
+              <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim)', marginTop: 2, lineHeight: 1.5 }}>
                 {f.types.join(' · ')}
               </div>
             </div>
           ))}
 
           <div className="lbl" style={{ marginTop: 15, marginBottom: 6 }}>Note</div>
-          <div style={{ fontSize: 9, color: 'var(--dim2)', lineHeight: 1.6 }}>
+          <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim2)', lineHeight: 1.6 }}>
             System types and their specifications are real and sourced from public
             open-source reporting. Every battery position, radar site and unit designator
             shown here is <b style={{ color: 'var(--dim)' }}>fictional</b> — no real
@@ -261,13 +261,13 @@ export default function National() {
             {bats.map((b) => (
               <div key={b.id} onClick={() => setSel({ kind: 'battery', id: b.id })}
                 style={{ cursor: 'pointer', border: '1px solid var(--line)', borderRadius: 2, padding: '5px 6px', marginBottom: 4, opacity: b.active ? 1 : .5 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--t-small)' }}>
                   <span style={{ color: layerCol(b.layer) }}>{b.spec.name} {b.unit}</span>
-                  <span style={{ color: b.active ? 'var(--dim)' : 'var(--red)', fontSize: 8.5 }}>
+                  <span style={{ color: b.active ? 'var(--dim)' : 'var(--red)', fontSize: 'var(--t-micro)' }}>
                     {b.active ? `${b.rounds} RDY` : 'OFFLINE'}
                   </span>
                 </div>
-                <div style={{ fontSize: 8.5, color: 'var(--dim2)', marginTop: 2 }}>
+                <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim2)', marginTop: 2 }}>
                   {b.layer} · {b.spec.rangeKm[1]} km · Mach {b.spec.mach} · {b.standoffKm} km @ {b.bearingFromSector}°
                 </div>
               </div>
@@ -319,7 +319,7 @@ export default function National() {
             <KV k="Reload" v={`${sp.reloadS} s`} />
             <KV k="Reaction time" v={`${sp.reactionS} s`} />
             <KV k="Service status" v={sp.status} c="var(--cy)" />
-            <div style={{ fontSize: 8.5, color: 'var(--dim2)', marginTop: 4, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim2)', marginTop: 4, lineHeight: 1.5 }}>
               Source: {sp.source}{sp.note ? ` · ${sp.note}` : ''}
             </div>
           </Grp>
@@ -336,7 +336,7 @@ export default function National() {
             <KV k="Stand-off from sector" v={`${b.standoffKm} km @ ${b.bearingFromSector}°`} />
             <KV k="Rounds at readiness" v={`${b.rounds}`} />
             <KV k="Status" v={b.active ? 'OPERATIONAL' : 'OFFLINE'} c={b.active ? 'var(--grn)' : 'var(--red)'} />
-            <div style={{ fontSize: 8.5, color: 'var(--dim2)', marginTop: 4, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim2)', marginTop: 4, lineHeight: 1.5 }}>
               Position and unit designator are fictional; the system type and its
               specifications are real.
             </div>
@@ -366,7 +366,7 @@ export default function National() {
           <KV k="Latitude" v={dms(r.lat, true)} />
           <KV k="Longitude" v={dms(r.lon, false)} />
           <KV k="Decimal" v={`${r.lat.toFixed(4)}°, ${r.lon.toFixed(4)}°`} />
-          <div style={{ fontSize: 8.5, color: 'var(--dim2)', marginTop: 4, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim2)', marginTop: 4, lineHeight: 1.5 }}>
             Radar type is drawn from the real system fielded in this sector. The site
             position is fictional.
           </div>
@@ -380,7 +380,7 @@ function Wrap({ title, tag, sub, col, children }: { title: string; tag: string; 
   return (
     <div style={{ padding: '10px 11px 20px' }}>
       <div style={{ fontSize: 13.5, color: col, letterSpacing: '.04em' }}>{title}</div>
-      <div style={{ fontSize: 8.5, color: 'var(--dim2)', marginTop: 2 }}>{tag} · {sub}</div>
+      <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim2)', marginTop: 2 }}>{tag} · {sub}</div>
       {children}
     </div>
   );

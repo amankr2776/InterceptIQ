@@ -341,6 +341,39 @@ noise ring-modulated by a drifting blade-pass frequency. Rocket motors are ampli
 The only deliberately electronic cue is the **radar lock**, because that one genuinely is a console
 tone in the fire-control cabin rather than something happening in the sky.
 
+### 🎛️ Design system
+
+The console runs on a deliberate, measured system rather than ad-hoc values.
+Before this pass the overview page rendered **26 distinct font sizes**
+(7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.2, 12, 12.5, 12.7 …) with 59 elements
+at 8–8.5px. That is what made a dense screen read as noise: nothing was
+clearly more important than anything else, and half of it was illegible on a
+projector.
+
+| | Before | After |
+|:--|--:|--:|
+| Distinct font sizes, overview | 26 | **6-step scale** |
+| Distinct font sizes, mission detail | 14 | **6** |
+| Distinct font sizes, methodology | 12 | **8** |
+| Smallest text | 7.5px | **9.5px** |
+
+**Type scale** — `9.5 / 11 / 12.5 / 15 / 21 / 30px`, six sizes, full stop.
+**Spacing** — a strict 4px rhythm (`--s1`…`--s8`); every gap and pad snaps to it.
+**Text ramp** — a true four-step ladder (`--txt / --txt2 / --dim / --dim2`);
+previously three tokens were doing the work of six, so headings and captions
+fought at the same weight.
+
+**One hero number.** The headline had three 26px figures competing. Now only
+the outcome — threats stopped — gets hero size and a status-coloured rule;
+everything else steps down to labelled supporting statistics.
+
+**Cartography.** Each country used to carry its own muddy tint (`#0b1512`
+green-brown India, `#120f13` Pakistan, `#0f1017` China) — nine near-identical
+darks that read as grime. Now it is two tones that mean something: defended
+territory in a cool slate-teal, everything else in one neutral graphite. The
+only saturated colour anywhere on the map is an engagement symbol, so the eye
+goes to the fight rather than the basemap.
+
 ### 🎨 No fire — effects that state the outcome
 
 There is not a single orange ember, fireball or ash cloud in the effects

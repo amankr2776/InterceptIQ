@@ -86,7 +86,7 @@ export default function Methodology() {
       <div style={{ overflowY: 'auto', padding: '16px 20px 40px' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto' }}>
 
-          <h1 style={{ fontSize: 17, color: 'var(--txt)', letterSpacing: '.04em', margin: '0 0 4px', fontWeight: 600 }}>
+          <h1 style={{ fontSize: 'var(--t-sub)', color: 'var(--txt)', letterSpacing: '.04em', margin: '0 0 4px', fontWeight: 600 }}>
             METHODOLOGY
           </h1>
           <p style={{ fontSize: 11, color: 'var(--dim)', margin: '0 0 18px', lineHeight: 1.6, maxWidth: 760 }}>
@@ -101,12 +101,12 @@ export default function Methodology() {
                 width: 46, flexShrink: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
                 paddingTop: 13, borderRight: '1px solid var(--line)', background: 'rgba(255,176,32,.04)',
               }}>
-                <span style={{ fontSize: 19, fontWeight: 700, color: 'var(--amb)' }}>{s.n}</span>
+                <span style={{ fontSize: 'var(--t-stat)', fontWeight: 700, color: 'var(--amb)' }}>{s.n}</span>
               </div>
               <div style={{ padding: '11px 14px', minWidth: 0 }}>
                 <div style={{ fontSize: 12.5, color: 'var(--txt)', letterSpacing: '.03em' }}>{s.title}</div>
-                <div style={{ fontSize: 10.5, color: 'var(--amb)', marginTop: 2, fontStyle: 'italic' }}>{s.q}</div>
-                <div style={{ fontSize: 10.5, color: 'var(--dim)', lineHeight: 1.7, marginTop: 6 }}>{s.body}</div>
+                <div style={{ fontSize: 'var(--t-small)', color: 'var(--amb)', marginTop: 2, fontStyle: 'italic' }}>{s.q}</div>
+                <div style={{ fontSize: 'var(--t-small)', color: 'var(--dim)', lineHeight: 1.7, marginTop: 6 }}>{s.body}</div>
                 <div style={{ fontSize: 9.5, color: 'var(--dim2)', marginTop: 6, paddingTop: 5, borderTop: '1px solid var(--line)' }}>
                   <b style={{ color: 'var(--cy)' }}>Output:</b> {s.out}
                 </div>
@@ -117,19 +117,19 @@ export default function Methodology() {
           {/* ---------- Pk CARD + REAL/SIM ---------- */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 1fr', gap: 12, marginTop: 18 }}>
             <div className="card" style={{ padding: 13, borderColor: 'var(--amb)' }}>
-              <div style={{ fontSize: 10, color: 'var(--amb)', letterSpacing: '.09em', marginBottom: 8 }}>
+              <div style={{ fontSize: 'var(--t-small)', color: 'var(--amb)', letterSpacing: '.09em', marginBottom: 8 }}>
                 ENGINEERING MODEL — SIMPLIFIED FOR DEMONSTRATION
               </div>
               <div style={{ background: 'var(--bg2)', border: '1px solid var(--line)', borderRadius: 2, padding: 11, fontSize: 11.5, lineHeight: 2 }}>
                 <div style={{ color: 'var(--amb)' }}>
                   P<sub>k</sub> = 0.92 · f<sub>range</sub> · f<sub>aspect</sub> · f<sub>margin</sub> · f<sub>class</sub>
                 </div>
-                <div style={{ color: 'var(--dim)', fontSize: 10.5 }}>f<sub>range</sub> &nbsp;= 1 − 0.55·(r / r<sub>max</sub>)<sup>1.6</sup></div>
-                <div style={{ color: 'var(--dim)', fontSize: 10.5 }}>f<sub>aspect</sub> = 1.0 head-on → 0.15 tail-chase</div>
-                <div style={{ color: 'var(--dim)', fontSize: 10.5 }}>f<sub>margin</sub> = 1 − e<sup>−Δt / 22</sup></div>
-                <div style={{ color: 'var(--dim)', fontSize: 10.5 }}>f<sub>class</sub> &nbsp;= 0.72 (&gt;3 km/s) · 0.84 (&gt;2 km/s) · 0.93 · 0.96 cruise</div>
+                <div style={{ color: 'var(--dim)', fontSize: 'var(--t-small)' }}>f<sub>range</sub> &nbsp;= 1 − 0.55·(r / r<sub>max</sub>)<sup>1.6</sup></div>
+                <div style={{ color: 'var(--dim)', fontSize: 'var(--t-small)' }}>f<sub>aspect</sub> = 1.0 head-on → 0.15 tail-chase</div>
+                <div style={{ color: 'var(--dim)', fontSize: 'var(--t-small)' }}>f<sub>margin</sub> = 1 − e<sup>−Δt / 22</sup></div>
+                <div style={{ color: 'var(--dim)', fontSize: 'var(--t-small)' }}>f<sub>class</sub> &nbsp;= 0.72 (&gt;3 km/s) · 0.84 (&gt;2 km/s) · 0.93 · 0.96 cruise</div>
               </div>
-              <div style={{ fontSize: 10, color: 'var(--dim)', lineHeight: 1.7, marginTop: 9 }}>
+              <div style={{ fontSize: 'var(--t-small)', color: 'var(--dim)', lineHeight: 1.7, marginTop: 9 }}>
                 <b style={{ color: 'var(--txt)' }}>Reading it in one line:</b> kill probability starts
                 at a ceiling and is multiplied down by four penalties — how far out the shot is
                 relative to the battery&rsquo;s maximum range, the angle the interceptor meets the
@@ -147,7 +147,7 @@ export default function Methodology() {
             </div>
 
             <div className="card" style={{ padding: 13 }}>
-              <div style={{ fontSize: 10, color: 'var(--cy)', letterSpacing: '.09em', marginBottom: 9 }}>
+              <div style={{ fontSize: 'var(--t-small)', color: 'var(--cy)', letterSpacing: '.09em', marginBottom: 9 }}>
                 WHAT&rsquo;S REAL vs SIMULATED
               </div>
               {[
@@ -164,12 +164,12 @@ export default function Methodology() {
                 return (
                   <div key={title as string} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                     <span style={{
-                      fontSize: 7.5, color: c, border: `1px solid ${c}44`, background: `${c}0d`,
+                      fontSize: 'var(--t-micro)', color: c, border: `1px solid ${c}44`, background: `${c}0d`,
                       padding: '2px 4px', borderRadius: 2, height: 'fit-content', width: 74,
                       textAlign: 'center', flexShrink: 0, letterSpacing: '.05em',
                     }}>{tag}</span>
                     <div>
-                      <div style={{ fontSize: 10, color: 'var(--txt)' }}>{title}</div>
+                      <div style={{ fontSize: 'var(--t-small)', color: 'var(--txt)' }}>{title}</div>
                       <div style={{ fontSize: 9.5, color: 'var(--dim)', lineHeight: 1.55 }}>{body}</div>
                     </div>
                   </div>
@@ -180,10 +180,10 @@ export default function Methodology() {
 
           {/* ---------- POSTURES ---------- */}
           <div className="card" style={{ padding: 13, marginTop: 12 }}>
-            <div style={{ fontSize: 10, color: 'var(--amb)', letterSpacing: '.09em', marginBottom: 8 }}>
+            <div style={{ fontSize: 'var(--t-small)', color: 'var(--amb)', letterSpacing: '.09em', marginBottom: 8 }}>
               ENGAGEMENT POSTURES — AND WHY THE COMPARISON MATTERS
             </div>
-            <div style={{ fontSize: 10.5, color: 'var(--dim)', lineHeight: 1.7, marginBottom: 9 }}>
+            <div style={{ fontSize: 'var(--t-small)', color: 'var(--dim)', lineHeight: 1.7, marginBottom: 9 }}>
               The optimiser&rsquo;s answer only means something next to the alternatives, so the
               Overview page solves the same scenario five ways and shows them side by side. Every
               mode is a real solve — nothing is pre-computed.
@@ -196,7 +196,7 @@ export default function Methodology() {
               ['Optimised', 'The smallest certified subset that still holds the line — the problem-statement deliverable.'],
             ].map(([k, v]) => (
               <div key={k as string} style={{ display: 'flex', gap: 9, marginBottom: 6 }}>
-                <span style={{ width: 108, flexShrink: 0, fontSize: 10, color: 'var(--txt)' }}>{k}</span>
+                <span style={{ width: 108, flexShrink: 0, fontSize: 'var(--t-small)', color: 'var(--txt)' }}>{k}</span>
                 <span style={{ fontSize: 9.5, color: 'var(--dim)', lineHeight: 1.55 }}>{v}</span>
               </div>
             ))}
@@ -210,7 +210,7 @@ export default function Methodology() {
           {/* ---------- BENCHMARK ---------- */}
           <div className="card" style={{ padding: 13, marginTop: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{ fontSize: 10, color: 'var(--vio)', letterSpacing: '.09em' }}>
+              <div style={{ fontSize: 'var(--t-small)', color: 'var(--vio)', letterSpacing: '.09em' }}>
                 SCALABILITY — SOLVE TIME vs SCENARIO SIZE
               </div>
               <button onClick={runBench} disabled={running}>
@@ -225,13 +225,13 @@ export default function Methodology() {
               {sol?.metrics.subsetsEvaluated ? ` after evaluating ${sol.metrics.subsetsEvaluated} candidate subsets.` : '.'}
             </div>
             {!bench && !running && (
-              <div style={{ fontSize: 10, color: 'var(--dim2)', padding: 16, textAlign: 'center', border: '1px dashed var(--line)', borderRadius: 2 }}>
+              <div style={{ fontSize: 'var(--t-small)', color: 'var(--dim2)', padding: 16, textAlign: 'center', border: '1px dashed var(--line)', borderRadius: 2 }}>
                 Press &ldquo;Run benchmark now&rdquo; to measure on this machine.
               </div>
             )}
-            {running && <div className="pulse" style={{ fontSize: 10, color: 'var(--amb)', padding: 16, textAlign: 'center' }}>Solving six scenarios…</div>}
+            {running && <div className="pulse" style={{ fontSize: 'var(--t-small)', color: 'var(--amb)', padding: 16, textAlign: 'center' }}>Solving six scenarios…</div>}
             {bench && (
-              <table style={{ width: '100%', fontSize: 10.5 }}>
+              <table style={{ width: '100%', fontSize: 'var(--t-small)' }}>
                 <thead><tr><th>Scenario</th><th>Threats</th><th>Candidate sites</th><th>Subsets evaluated</th><th>Solve time</th><th style={{ width: '34%' }}></th></tr></thead>
                 <tbody>
                   {bench.map((b) => (

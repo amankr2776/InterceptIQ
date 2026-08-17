@@ -96,137 +96,201 @@ export default function Overview() {
         </>
       } />
 
-      {/* ================= HEADLINE ================= */}
-      <div style={{ padding: '14px 20px 12px', borderBottom: '1px solid var(--line)', background: 'var(--panel)' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 26, fontWeight: 700, color: 'var(--intcp)', letterSpacing: '-.01em' }}>
-            <Num value={sol.selectedAreaIds.length} /> of {sc.areas.length}
-          </span>
-          <span style={{ fontSize: 15, color: 'var(--dim)' }}>interceptor sites selected</span>
-          <Dot />
-          <span style={{ fontSize: 26, fontWeight: 700, color: allStopped ? 'var(--burst)' : 'var(--threat)' }}>
-            {allStopped ? 'all ' : ''}<Num value={m.threatsEngaged} /> of {m.threatsTotal}
-          </span>
-          <span style={{ fontSize: 15, color: 'var(--dim)' }}>
-            threats {allStopped ? 'neutralised' : `engaged · ${m.leakers} leaker${m.leakers > 1 ? 's' : ''}`}
-          </span>
-          <Dot />
-          <span style={{ fontSize: 26, fontWeight: 700, color: 'var(--amb)' }}>
-            <Num value={m.solveMs} suffix="ms" />
-          </span>
-          <span style={{ fontSize: 15, color: 'var(--dim)' }}>to solve</span>
+      {/* ================= HEADLINE =================
+        * ONE hero number, not three competing at 26px. The result of the
+        * optimisation — how many threats were stopped — is the single thing
+        * a judge should read first, so it alone gets the hero size and a
+        * status-coloured rule. Everything else steps down a level and sits
+        * in a labelled group, so the row reads as a scoreboard rather than
+        * a sentence of mixed-size fragments. */}
+      <div style={{
+        padding: 'var(--s4) var(--s5) var(--s3)',
+        borderBottom: '1px solid var(--line)',
+        background: 'linear-gradient(180deg, var(--panel2), var(--panel))',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s5)', flexWrap: 'wrap' }}>
+
+          {/* HERO — the outcome */}
+          <div style={{
+            display: 'flex', alignItems: 'baseline', gap: 'var(--s2)',
+            paddingLeft: 'var(--s3)',
+            borderLeft: `3px solid ${allStopped ? 'var(--burst)' : 'var(--threat)'}`,
+          }}>
+            <span style={{
+              fontSize: 'var(--t-hero)', fontWeight: 700, lineHeight: 1,
+              color: allStopped ? 'var(--burst)' : 'var(--threat)',
+              letterSpacing: '-.02em',
+            }}>
+              <Num value={m.threatsEngaged} /><span style={{ color: 'var(--dim)', fontWeight: 400 }}>/{m.threatsTotal}</span>
+            </span>
+            <span style={{ fontSize: 'var(--t-small)', color: 'var(--txt2)', letterSpacing: '.04em' }}>
+              {allStopped ? 'THREATS NEUTRALISED' : `ENGAGED · ${m.leakers} LEAKER${m.leakers > 1 ? 'S' : ''}`}
+            </span>
+          </div>
+
+          {/* supporting statistics, visibly subordinate */}
+          <HeroStat label="Sites used" v={`${sol.selectedAreaIds.length}`} sub={`of ${sc.areas.length}`} c="var(--intcp)" />
+          <HeroStat label="Rounds" v={`${m.interceptorsUsed}`} sub="committed" c="var(--txt)" />
+          <HeroStat label="Protection" v={`${(m.weightedProtection * 100).toFixed(0)}%`} sub="weighted" c="var(--burst)" />
+          <HeroStat label="Solve time" v={`${m.solveMs}`} sub="ms" c="var(--amb)" />
 
           <Link href="/mission" style={{ marginLeft: 'auto' }}>
-            <button className="on" style={{ padding: '10px 16px', fontSize: 11 }}>
-              View Full Mission Detail →
+            <button className="on" style={{ padding: '11px 18px', fontSize: 'var(--t-small)' }}>
+              Full mission detail →
             </button>
           </Link>
         </div>
-        <div style={{ fontSize: 10, color: 'var(--dim2)', marginTop: 6 }}>
-          Defending {sc.assets.map((a) => a.name).join(', ')} · {theatre?.name} ·{' '}
-          {m.interceptorsUsed} interceptors committed · {(m.weightedProtection * 100).toFixed(1)}% weighted protection
-          {sol.certified && ' · minimal site subset proven by exhaustive search'}
+
+        <div style={{
+          fontSize: 'var(--t-micro)', color: 'var(--dim)', marginTop: 'var(--s3)',
+          letterSpacing: '.05em', display: 'flex', gap: 'var(--s2)', flexWrap: 'wrap',
+        }}>
+          <span style={{ color: 'var(--dim2)' }}>DEFENDING</span>
+          <span style={{ color: 'var(--txt2)' }}>{sc.assets.map((a) => a.name).join(' · ')}</span>
+          <span style={{ color: 'var(--line2)' }}>│</span>
+          <span style={{ color: 'var(--dim2)' }}>THEATRE</span>
+          <span style={{ color: 'var(--txt2)' }}>{theatre?.name}</span>
+          {sol.certified && (
+            <>
+              <span style={{ color: 'var(--line2)' }}>│</span>
+              <span style={{ color: 'var(--burst)' }}>✓ MINIMAL SUBSET PROVEN BY EXHAUSTIVE SEARCH</span>
+            </>
+          )}
         </div>
       </div>
 
       <CompareBar mode={mode} onMode={setMode} results={results} busy={busy} />
 
       {/* ================= MAP ================= */}
-      <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', minHeight: 0 }}>
-        {/* slim, de-emphasised controls */}
-        <aside style={{ borderRight: '1px solid var(--line)', background: 'var(--panel)', padding: 9, overflowY: 'auto' }}>
-          <div className="lbl" style={{ opacity: .75 }}>Scenario</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, marginTop: 4 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '178px 1fr', minHeight: 0 }}>
+        {/* Control rail. Widened from 150px so nothing has to be set at 8px
+          * to fit; every control now sits at the 11px small size, which is
+          * the smallest genuinely legible size on a projector. */}
+        <aside style={{
+          borderRight: '1px solid var(--line)', background: 'var(--panel)',
+          padding: 'var(--s3)', overflowY: 'auto',
+          display: 'flex', flexDirection: 'column', gap: 'var(--s4)',
+        }}>
+        <div>
+          <div className="grouphead">Scenario</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--s1)', marginTop: 'var(--s2)' }}>
             {(['easy', 'medium', 'hard'] as const).map((x) => (
-              <button key={x} className={sc.tier === x ? 'on' : ''} style={{ fontSize: 9, padding: '5px 0' }}
+              <button key={x} className={sc.tier === x ? 'on' : ''} style={{ padding: '6px 0' }}
                 onClick={() => { load(x, 42, sc.theatreId); setSel(null); }}>{x}</button>
             ))}
-            <button style={{ fontSize: 9, padding: '5px 0' }}
+            <button style={{ padding: '6px 0' }}
               onClick={() => { load('random', undefined, sc.theatreId); setSel(null); }}>rand</button>
           </div>
+        </div>
 
-          {/* The theatre list previously had a one-word label, which did not
-            * tell a first-time viewer that these rows are clickable region
-            * selectors rather than a static legend. */}
-          <div className="lbl" style={{ marginTop: 11, opacity: .75 }}>Simulation theatre</div>
-          <div style={{ fontSize: 8, color: 'var(--dim2)', marginTop: 1, lineHeight: 1.4 }}>
+        <div>
+          <div className="grouphead">Simulation theatre</div>
+          <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>
             Click to switch scenario region
           </div>
-          <div style={{ display: 'grid', gap: 2, marginTop: 4 }}>
+          {/* 17 theatres would push every other control off the rail, so the
+            * list scrolls inside a fixed height. The active one is scrolled
+            * into view on change. */}
+          <div style={{
+            display: 'grid', gap: 2, marginTop: 'var(--s2)',
+            maxHeight: 168, overflowY: 'auto', paddingRight: 2,
+          }}>
             {THEATRES.map((th) => (
               <button key={th.id} className={sc.theatreId === th.id ? 'on' : ''}
-                style={{ fontSize: 8.5, padding: '4px 5px', textAlign: 'left' }}
+                ref={sc.theatreId === th.id
+                  ? (el) => el?.scrollIntoView({ block: 'nearest' })
+                  : undefined}
+                style={{ fontSize: 'var(--t-micro)', padding: '5px 7px', textAlign: 'left', lineHeight: 1.35 }}
                 onClick={() => { load(sc.tier === 'random' ? 'medium' : sc.tier, 42, th.id); setSel(null); }}>
                 {th.name.replace(/ (Sector|Seaboard|Corridor|Peninsula)/, '')}
               </button>
             ))}
           </div>
+        </div>
 
-          <div className="lbl" style={{ marginTop: 11, opacity: .75 }}>Playback</div>
-          <div style={{ display: 'flex', gap: 3, marginTop: 4 }}>
-            <button className={playing ? 'on' : ''} style={{ flex: 1, fontSize: 9 }} onClick={() => setPlaying(!playing)}>
-              {playing ? '❚❚' : '▶'} {playing ? 'Hold' : 'Run'}
+        <div>
+          <div className="grouphead">Playback</div>
+          <div style={{ display: 'flex', gap: 'var(--s1)', marginTop: 'var(--s2)' }}>
+            <button className={playing ? 'on' : ''} style={{ flex: 1 }} onClick={() => setPlaying(!playing)}>
+              {playing ? '❚❚ Hold' : '▶ Run'}
             </button>
-            <button style={{ fontSize: 9 }} onClick={() => { setT(0); setPlaying(false); setDismissed(false); }}>↺</button>
+            <button title="Restart from T+0"
+              onClick={() => { setT(0); setPlaying(false); setDismissed(false); }}>↺</button>
           </div>
-          <button style={{ width: '100%', marginTop: 3, fontSize: 8.5 }}
+          <button style={{ width: '100%', marginTop: 'var(--s1)', fontSize: 'var(--t-micro)' }}
             onClick={jumpToFirstEngagement} title="Skip to the first launch">
             ⏭ Jump to first engagement
           </button>
-          <div style={{ display: 'flex', gap: 2, marginTop: 3 }}>
+          <div style={{ display: 'flex', gap: 2, marginTop: 'var(--s1)' }}>
             {[1, 4, 10, 25].map((r) => (
-              <button key={r} className={rate === r ? 'on' : ''} style={{ flex: 1, padding: '4px 0', fontSize: 8.5 }}
+              <button key={r} className={rate === r ? 'on' : ''}
+                style={{ flex: 1, padding: '4px 0', fontSize: 'var(--t-micro)' }}
                 onClick={() => setRate(r)}>{r}×</button>
             ))}
           </div>
           <input type="range" min={0} max={tMax} step={0.5} value={Math.min(t, tMax)}
             onChange={(e) => { setPlaying(false); setT(+e.target.value); }}
-            style={{ width: '100%', marginTop: 7 }} />
-          <div style={{ fontSize: 9, color: 'var(--dim2)', textAlign: 'center' }}>T+{t.toFixed(0)}s</div>
+            style={{ width: '100%', marginTop: 'var(--s2)' }} />
+          <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim)', textAlign: 'center' }}>
+            T+{t.toFixed(0)}s
+          </div>
+        </div>
 
-          <div className="lbl" style={{ marginTop: 11, opacity: .75 }}>Threat volume</div>
+        <div>
+          <div className="grouphead">Threat volume</div>
           <input type="range" min={2} max={14} step={1} value={sc.threats.length}
             onChange={(e) => load(sc.tier === 'random' ? 'medium' : sc.tier, 42, sc.theatreId, +e.target.value)}
-            style={{ width: '100%', marginTop: 4 }} />
-          <div style={{ fontSize: 8, color: 'var(--dim2)', textAlign: 'center' }}>
+            style={{ width: '100%', marginTop: 'var(--s2)' }} />
+          <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim)', textAlign: 'center' }}>
             {sc.threats.length} inbound · {(m.weightedProtection * 100).toFixed(0)}% held
           </div>
+        </div>
 
-          <div className="lbl" style={{ marginTop: 11, opacity: .75 }}>Map layers</div>
-          {LAYERS.map(([k, l]) => (
-            <button key={k} className={layers[k] ? 'on' : ''}
-              style={{ width: '100%', marginTop: 2, textAlign: 'left', fontSize: 8, padding: '3px 5px' }}
-              onClick={() => setLayers((v) => ({ ...v, [k]: !v[k] }))}>
-              {layers[k] ? '✓' : '·'} {l}
-            </button>
-          ))}
+        <div>
+          <div className="grouphead">Map layers</div>
+          <div style={{ display: 'grid', gap: 2, marginTop: 'var(--s2)' }}>
+            {LAYERS.map(([k, l]) => (
+              <button key={k} className={layers[k] ? 'on' : ''}
+                style={{ width: '100%', textAlign: 'left', fontSize: 'var(--t-micro)', padding: '4px 7px' }}
+                onClick={() => setLayers((v) => ({ ...v, [k]: !v[k] }))}>
+                {layers[k] ? '✓' : '·'} {l}
+              </button>
+            ))}
+          </div>
+        </div>
 
-          <div className="lbl" style={{ marginTop: 11, opacity: .75 }}>Battery status</div>
-          <button className={addMode ? 'on' : ''} style={{ width: '100%', marginTop: 4, fontSize: 8.5 }}
+        <div>
+          <div className="grouphead">Battery status</div>
+          <button className={addMode ? 'on' : ''}
+            style={{ width: '100%', marginTop: 'var(--s2)', fontSize: 'var(--t-micro)' }}
             onClick={() => setAddMode(!addMode)}>
             {addMode ? '◉ Click map…' : '+ Inject threat'}
           </button>
           {sc.areas.map((a) => {
             const st = statusOf(a.id);
             return (
-              <div key={a.id} style={{ display: 'flex', gap: 3, marginTop: 2 }}>
+              <div key={a.id} style={{ display: 'flex', gap: 'var(--s1)', marginTop: 3 }}>
                 <div style={{
-                  flex: 1, fontSize: 8, padding: '3px 5px', lineHeight: 1.3,
-                  border: '1px solid var(--line)', borderRadius: 2,
-                  borderLeft: `2px solid ${st ? STATE_COLOUR[st.state] : 'var(--line)'}`,
+                  flex: 1, fontSize: 'var(--t-micro)', padding: '5px 7px', lineHeight: 1.5,
+                  background: 'var(--panel2)',
+                  border: '1px solid var(--line)', borderRadius: 'var(--r)',
+                  borderLeft: `2px solid ${st ? STATE_COLOUR[st.state] : 'var(--line2)'}`,
+                  minWidth: 0,
                 }}>
-                  <div style={{ color: 'var(--txt)' }}>{a.name}</div>
+                  <div style={{ color: 'var(--txt2)', whiteSpace: 'nowrap',
+                    overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</div>
                   <div style={{ color: st ? STATE_COLOUR[st.state] : 'var(--dim2)' }}>
                     {st?.state}{st?.countdownS != null && st.countdownS <= 30
                       ? ` ${st.countdownS.toFixed(0)}s` : ''} · {st?.roundsLeft ?? a.inventory} rds
                   </div>
                 </div>
                 <button className={!a.active ? 'danger on' : ''}
-                  style={{ fontSize: 7.5, padding: '3px 4px' }}
-                  onClick={() => toggleSite(a.id)}>{a.active ? 'KILL' : 'UP'}</button>
+                  style={{ fontSize: 'var(--t-micro)', padding: '3px 6px' }}
+                  onClick={() => toggleSite(a.id)}>{a.active ? '✕' : '↑'}</button>
               </div>
             );
           })}
+        </div>
         </aside>
 
         <main style={{ position: 'relative', minWidth: 0, minHeight: 0 }}>
@@ -298,7 +362,7 @@ export default function Overview() {
               onClose={() => { setShowSummary(false); setDismissed(true); }} />
           )}
           {flash && (
-            <div className="fadein" style={{ position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)', background: 'rgba(6,10,15,.96)', border: '1px solid var(--amb)', color: 'var(--amb)', padding: '8px 15px', borderRadius: 2, fontSize: 10.5, whiteSpace: 'nowrap' }}>
+            <div className="fadein" style={{ position: 'absolute', bottom: 14, left: '50%', transform: 'translateX(-50%)', background: 'rgba(6,10,15,.96)', border: '1px solid var(--amb)', color: 'var(--amb)', padding: '8px 15px', borderRadius: 'var(--r)', fontSize: 'var(--t-small)', whiteSpace: 'nowrap' }}>
               {flash}
             </div>
           )}
@@ -336,7 +400,20 @@ export default function Overview() {
   );
 }
 
-const Dot = () => <span style={{ color: 'var(--line2)', fontSize: 18 }}>·</span>;
+/** Supporting statistic in the headline row — deliberately one full step
+ *  below the hero number so the hierarchy is unambiguous. */
+function HeroStat({ label, v, sub, c }:
+  { label: string; v: string; sub: string; c: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <span className="lbl" style={{ fontSize: 'var(--t-micro)' }}>{label}</span>
+      <span style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+        <span style={{ fontSize: 'var(--t-stat)', fontWeight: 600, color: c, lineHeight: 1 }}>{v}</span>
+        <span style={{ fontSize: 'var(--t-micro)', color: 'var(--dim)' }}>{sub}</span>
+      </span>
+    </div>
+  );
+}
 
 function Arrow() {
   return (
@@ -349,7 +426,7 @@ function Step({ n, title, body, icon, col }: { n: number; title: string; body: s
     <div style={{ flex: 1, display: 'flex', gap: 10, padding: '11px 14px', minWidth: 0 }}>
       <div style={{ flexShrink: 0, paddingTop: 1 }}>{icon}</div>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 10.5, color: col, letterSpacing: '.05em' }}>
+        <div style={{ fontSize: 'var(--t-small)', color: col, letterSpacing: '.07em' }}>
           {n}. {title.toUpperCase()}
         </div>
         <div style={{ fontSize: 9.5, color: 'var(--dim)', lineHeight: 1.5, marginTop: 2 }}>{body}</div>

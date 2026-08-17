@@ -35,7 +35,7 @@ export default function MissionDetail() {
     <div style={{ display: 'grid', gridTemplateRows: 'auto auto auto 1fr', height: '100vh', overflow: 'hidden' }}>
       <Nav right={
         <>
-          <span style={{ fontSize: 10, color: 'var(--dim)' }}>T+{t.toFixed(1)}s</span>
+          
           <button className={playing ? 'on' : ''} onClick={() => setPlaying(!playing)}>
             {playing ? '❚❚ Hold' : '▶ Run'}
           </button>
@@ -47,28 +47,44 @@ export default function MissionDetail() {
         </>
       } />
 
-      {/* scrub bar */}
-      <div style={{ padding: '6px 14px', borderBottom: '1px solid var(--line)', background: 'var(--panel)', display: 'flex', gap: 12, alignItems: 'center' }}>
-        <input type="range" min={0} max={tMax} step={0.25} value={Math.min(t, tMax)}
-          onChange={(e) => { setPlaying(false); setT(+e.target.value); }} style={{ flex: 1 }} />
-        <span style={{ fontSize: 9.5, color: 'var(--dim2)', whiteSpace: 'nowrap' }}>
-          {sol.selectedAreaIds.length}/{sc.areas.length} sites · {m.interceptorsUsed} rounds · {m.solveMs}ms
-        </span>
+      {/* MISSION SUMMARY BAR
+        * The scrub control used to sit alone in a 6px-tall strip with the
+        * mission statistics squeezed to its right at 9.5px. Those numbers
+        * are the context for everything below, so they now lead the bar as
+        * labelled figures, with the scrub beneath them at full width. */}
+      <div style={{
+        padding: 'var(--s3) var(--s4)', borderBottom: '1px solid var(--line)',
+        background: 'linear-gradient(180deg, var(--panel2), var(--panel))',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s5)', flexWrap: 'wrap' }}>
+          <MiniStat label="Sites" v={`${sol.selectedAreaIds.length}/${sc.areas.length}`} c="var(--intcp)" />
+          <MiniStat label="Rounds" v={`${m.interceptorsUsed}`} c="var(--txt)" />
+          <MiniStat label="Mean Pk" v={m.meanPk.toFixed(2)} c="var(--burst)" />
+          <MiniStat label="Solve" v={`${m.solveMs}ms`} c="var(--amb)" />
+          <div style={{ marginLeft: 'auto' }}><MapLegend compact /></div>
+        </div>
+        <div style={{ display: 'flex', gap: 'var(--s3)', alignItems: 'center', marginTop: 'var(--s3)' }}>
+          <span className="lbl" style={{ whiteSpace: 'nowrap' }}>T+{t.toFixed(1)}s</span>
+          <input type="range" min={0} max={tMax} step={0.25} value={Math.min(t, tMax)}
+            onChange={(e) => { setPlaying(false); setT(+e.target.value); }} style={{ flex: 1 }} />
+        </div>
       </div>
 
       {/* tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--line)', background: 'var(--panel)' }}>
+      <div style={{
+        display: 'flex', borderBottom: '1px solid var(--line)',
+        background: 'var(--panel)', paddingLeft: 'var(--s2)',
+      }}>
         {TABS.map((x) => (
           <button key={x.id} onClick={() => setTab(x.id)}
             style={{
-              border: 'none', borderRadius: 0, background: 'transparent', padding: '9px 17px',
+              border: 'none', borderRadius: 0, background: 'transparent',
+              padding: '11px 18px', letterSpacing: '.09em',
               borderBottom: tab === x.id ? '2px solid var(--amb)' : '2px solid transparent',
-              color: tab === x.id ? 'var(--amb)' : 'var(--dim)', fontSize: 10.5,
+              color: tab === x.id ? 'var(--amb)' : 'var(--dim)',
+              fontSize: 'var(--t-small)',
             }}>{x.label}</button>
         ))}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', paddingRight: 12 }}>
-          <MapLegend compact />
-        </div>
       </div>
 
       <div style={{ minHeight: 0, overflow: 'hidden' }}>
@@ -87,12 +103,12 @@ export default function MissionDetail() {
     return (
       <div style={{ height: '100%', overflowY: 'auto', padding: 14 }}>
         <div className="card" style={{ padding: 10, marginBottom: 13, borderLeft: `2px solid ${COL.intcp}` }}>
-          <div style={{ fontSize: 11, color: 'var(--txt)', lineHeight: 1.6 }}>
+          <div style={{ fontSize: 'var(--t-body)', color: 'var(--txt2)', lineHeight: 1.7 }}>
             Each selected site is assigned to the targets it can intercept with highest kill
             probability (Pk). <b style={{ color: COL.intcp }}>Pk is the probability that the
             interceptor destroys the incoming threat</b> — higher is better for the defender.
           </div>
-          <div style={{ fontSize: 9.5, color: 'var(--dim2)', marginTop: 5 }}>
+          <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim)', marginTop: 6 }}>
             Selected subset: <b style={{ color: 'var(--amb)' }}>
               {sol.selectedAreaIds.map((id) => sc.areas.find((a) => a.id === id)?.name).join(' · ')}
             </b> — {sol.selectedAreaIds.length} of {sol.consideredAreaIds.length} candidate sites
@@ -110,12 +126,12 @@ export default function MissionDetail() {
                 <span style={{ fontSize: 12, color: COL.asset, letterSpacing: '.05em' }}>
                   {asset.name.toUpperCase()}
                 </span>
-                <span style={{ fontSize: 9, color: 'var(--dim2)' }}>
+                <span style={{ fontSize: 'var(--t-micro)', color: 'var(--dim)' }}>
                   protected asset · {(asset.population / 1e6).toFixed(1)}M people · value {asset.value}/10
                 </span>
               </div>
 
-              <table style={{ width: '100%', fontSize: 10.5 }}>
+              <table style={{ width: '100%', fontSize: 'var(--t-small)' }}>
                 <thead>
                   <tr>
                     <th style={{ width: 26 }}></th><th>Incoming threat</th>
@@ -167,7 +183,7 @@ export default function MissionDetail() {
                 const r = sol.perThreat.find((p) => p.threatId === th.id)!;
                 if (r.leaker) return null;
                 return (
-                  <div key={th.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, fontSize: 9.5 }}>
+                  <div key={th.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, fontSize: 'var(--t-micro)' }}>
                     <span style={{ width: 62, color: 'var(--dim2)' }}>{th.callsign}</span>
                     <div style={{ flex: 1, maxWidth: 320 }}><Bar v={r.cumulativePk} c={COL.burst} h={4} /></div>
                     <span style={{ color: COL.burst }}>
@@ -202,10 +218,10 @@ export default function MissionDetail() {
                 <Mark c={s.c} s={s.s} />
               </span>
               <div>
-                <div style={{ fontSize: 10, color: s.c, letterSpacing: '.05em' }}>
+                <div style={{ fontSize: 'var(--t-small)', color: s.c, letterSpacing: '.06em' }}>
                   {i + 1}. {s.label.toUpperCase()}
                 </div>
-                <div style={{ fontSize: 8.5, color: 'var(--dim2)' }}>{s.desc}</div>
+                <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim)' }}>{s.desc}</div>
               </div>
             </div>
           ))}
@@ -231,7 +247,7 @@ export default function MissionDetail() {
               onClick={() => setSel({ kind: 'site', id: d.areaId })}
               style={{ width: '100%', textAlign: 'left', marginBottom: 3, padding: '6px 7px', lineHeight: 1.35 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 9.5 }}>{d.name}</span>
+                <span style={{ fontSize: 'var(--t-small)' }}>{d.name}</span>
                 <span style={{ fontSize: 7.5, color: d.state === 'TASKED' ? 'var(--amb)' : d.state === 'OFFLINE' ? 'var(--threat)' : 'var(--dim2)' }}>
                   {d.state}
                 </span>
@@ -246,7 +262,7 @@ export default function MissionDetail() {
             <button key={th.id}
               className={sel?.kind === 'threat' && sel.id === th.id ? 'on' : ''}
               onClick={() => setSel({ kind: 'threat', id: th.id })}
-              style={{ width: '100%', textAlign: 'left', marginBottom: 3, padding: '5px 7px', fontSize: 9 }}>
+              style={{ width: '100%', textAlign: 'left', marginBottom: 3, padding: '6px 8px', fontSize: 'var(--t-micro)' }}>
               {th.callsign} <span style={{ color: 'var(--dim2)' }}>{th.cls} → {th.targetAssetName}</span>
             </button>
           ))}
@@ -266,6 +282,16 @@ export default function MissionDetail() {
       </div>
     );
   }
+}
+
+/** Compact labelled figure for the mission summary bar. */
+function MiniStat({ label, v, c }: { label: string; v: string; c: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <span className="lbl">{label}</span>
+      <span style={{ fontSize: 'var(--t-sub)', fontWeight: 600, color: c, lineHeight: 1.1 }}>{v}</span>
+    </div>
+  );
 }
 
 function Mark({ c, s }: { c: string; s: string }) {

@@ -20,10 +20,10 @@ export default function Nav({ right }: { right?: React.ReactNode }) {
       flexShrink: 0, height: 46,
     }}>
       <Link href="/" style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
-        <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--amb)', letterSpacing: '.06em' }}>
+        <span style={{ fontSize: 'var(--t-sub)', fontWeight: 700, color: 'var(--amb)', letterSpacing: '.06em' }}>
           InterceptIQ
         </span>
-        <span style={{ fontSize: 8, color: 'var(--dim2)' }}>AIR DEFENCE C2</span>
+        <span style={{ fontSize: 'var(--t-micro)', color: 'var(--dim2)' }}>AIR DEFENCE C2</span>
       </Link>
 
       <nav style={{ display: 'flex', gap: 2, height: '100%' }}>
@@ -37,10 +37,10 @@ export default function Nav({ right }: { right?: React.ReactNode }) {
               background: on ? 'rgba(255,176,32,.07)' : 'transparent',
             }}>
               <span style={{
-                fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase',
+                fontSize: 'var(--t-small)', letterSpacing: '.07em', textTransform: 'uppercase',
                 color: on ? 'var(--amb)' : 'var(--txt)',
               }}>{p.label}</span>
-              <span style={{ fontSize: 8, color: 'var(--dim2)' }}>{p.sub}</span>
+              <span style={{ fontSize: 'var(--t-micro)', color: 'var(--dim2)' }}>{p.sub}</span>
             </Link>
           );
         })}

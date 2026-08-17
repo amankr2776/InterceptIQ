@@ -74,13 +74,36 @@ function headingAt(th: { trajectory: { t: number; p: { lat: number; lon: number 
 
 /* Muted landmass palette: the map is a backdrop, tracks and rings are the
  * signal. India is very slightly lifted from its neighbours, no more. */
+/* ---------------------------------------------------------------------
+ * CARTOGRAPHIC PALETTE
+ * ---------------------------------------------------------------------
+ * The old palette gave every country a slightly different muddy tint
+ * (#0b1512 green-brown for India, #120f13 for Pakistan, #0f1017 for China),
+ * which read as grime rather than as a map: nine near-identical dark browns
+ * with no relationship to each other or to the engagement colours drawn on
+ * top.
+ *
+ * This is a two-tone scheme instead, and it carries meaning:
+ *   DEFENDED TERRITORY  a cool slate-teal, very slightly lifted, because it
+ *                       is the thing being protected and should feel "ours"
+ *   EVERYTHING ELSE     a single neutral graphite, uniformly recessive
+ *
+ * Borders are one hue at two intensities. The result is that the ONLY warm
+ * or saturated colour anywhere on the map is an engagement symbol, so the
+ * eye goes to the fight rather than to the basemap.
+ * ------------------------------------------------------------------- */
+const IND_FILL = '#0c1620';
+const OTH_FILL = '#0a0d12';
+const IND_LINE = '#2d5f6b';
+const OTH_LINE = '#232d3b';
+
 const NEIGHBOUR_FILL: Record<string, string> = {
-  IND: '#0b1512', PAK: '#120f13', CHN: '#0f1017', NPL: '#0e1310',
-  BTN: '#0e1310', BGD: '#0d1315', LKA: '#0e1310', MMR: '#0d1315', AFG: '#120f13',
+  IND: IND_FILL, PAK: OTH_FILL, CHN: OTH_FILL, NPL: OTH_FILL,
+  BTN: OTH_FILL, BGD: OTH_FILL, LKA: OTH_FILL, MMR: OTH_FILL, AFG: OTH_FILL,
 };
 const NEIGHBOUR_LINE: Record<string, string> = {
-  IND: '#2f5943', PAK: '#4a2f38', CHN: '#33354f', NPL: '#2b4038',
-  BTN: '#2b4038', BGD: '#284048', LKA: '#2b4038', MMR: '#284048', AFG: '#4a2f38',
+  IND: IND_LINE, PAK: OTH_LINE, CHN: OTH_LINE, NPL: OTH_LINE,
+  BTN: OTH_LINE, BGD: OTH_LINE, LKA: OTH_LINE, MMR: OTH_LINE, AFG: OTH_LINE,
 };
 
 export default function GeoMap({ sc, sol, t, sel, onSel, addMode, onMapClick, layers, onCursor, fx = false, playing = false }: Props) {

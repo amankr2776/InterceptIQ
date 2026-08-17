@@ -30,7 +30,7 @@ export default function CompareBar({
       <div style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
         <div style={{ padding: '7px 12px', borderRight: '1px solid var(--line)', display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 132 }}>
           <div className="lbl" style={{ marginBottom: 1 }}>Compare</div>
-          <div style={{ fontSize: 8, color: 'var(--dim2)', lineHeight: 1.3 }}>
+          <div style={{ fontSize: 'var(--t-micro)', color: 'var(--dim)', lineHeight: 1.45 }}>
             same attack,<br />different defence
           </div>
         </div>
@@ -49,16 +49,16 @@ export default function CompareBar({
                 background: on ? `${c}14` : 'transparent',
                 padding: '6px 11px', textTransform: 'none', letterSpacing: 0,
               }}>
-              <div style={{ fontSize: 10, color: on ? c : 'var(--txt)', letterSpacing: '.04em' }}>
+              <div style={{ fontSize: 'var(--t-micro)', color: on ? c : 'var(--txt2)', letterSpacing: '.09em' }}>
                 {m.label.toUpperCase()}
               </div>
               {r && (
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: r.leakers ? COL.threat : COL.burst }}>
+                  <span style={{ fontSize: 'var(--t-sub)', fontWeight: 700, color: r.leakers ? COL.threat : COL.burst }}>
                     {r.total - r.leakers}/{r.total}
                   </span>
-                  <span style={{ fontSize: 8.5, color: 'var(--dim2)' }}>stopped</span>
-                  <span style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--dim)' }}>
+                  <span style={{ fontSize: 'var(--t-micro)', color: 'var(--dim)' }}>stopped</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 'var(--t-micro)', color: 'var(--dim)' }}>
                     {r.sitesUsed} site{r.sitesUsed === 1 ? '' : 's'}
                   </span>
                 </div>
@@ -73,7 +73,7 @@ export default function CompareBar({
       {cur && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 14, padding: '5px 12px',
-          borderTop: '1px solid var(--line)', fontSize: 10,
+          borderTop: '1px solid var(--line)', fontSize: 'var(--t-small)',
           background: cur.leakers ? 'rgba(244,63,94,.07)' : 'rgba(52,211,153,.05)',
         }}>
           <span style={{ color: cur.leakers ? COL.threat : COL.burst, letterSpacing: '.05em' }}>
